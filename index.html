@@ -349,7 +349,7 @@ function Field({ label, children }) {
 }
 const inputStyle = { border: "1px solid #D8DBCF", background: "white" };
 
-function EnrollmentGate({ onVerified }) {
+function EnrollmentGate({ onVerified, onLoadDemo }) {
   const [school, setSchool] = useState(SCHOOL_PRESETS[0].name);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -408,6 +408,11 @@ function EnrollmentGate({ onVerified }) {
         <button onClick={continuePending} className="w-full py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5" style={{ border: "1px solid #D8DBCF", color: "#3B4B6B" }}>
           Continue — not enrolled yet
         </button>
+        {onLoadDemo && (
+          <button onClick={onLoadDemo} className="w-full py-2 mt-2 rounded-xl text-xs flex items-center justify-center gap-1.5" style={{ border: "1px dashed #C77D2D", color: "#C77D2D" }}>
+            <Sparkles size={12} /> Load North Lake demo data
+          </button>
+        )}
         <p className="text-xs mt-2 leading-relaxed" style={{ color: "#9098A0" }}>
           Not registered yet, or don't have your student email? You can still use Campus. Your ID will show as "Pending" instead of "Verified" until you sign in with a matching student email later.
         </p>
@@ -697,6 +702,94 @@ function CampusApp() {
     else if (prevPct < 75 && newPct >= 75) pushAlert(`budget-warn-${cat.id}-${Date.now()}`, `${cat.name} is at ${Math.round(newPct)}% of its weekly limit.`, "warn");
   }
 
+
+  // ---- North Lake demo data loader ----
+  // One-tap fill for the "Dallas College – North Lake Campus" test account,
+  // grounded in real public info (campus address/phone, real building/room
+  // service locations from the published campus map, real Fall 2026 academic
+  // calendar dates). Course numbers use the standard Texas Common Course
+  // Numbering System. Student name/ID/profile photo are placeholders —
+  // add your own photo via the Student ID screen. Exact classroom room
+  // numbers vary by semester/section, so those are illustrative only —
+  // pins reflect real, currently-published campus service locations.
+  function loadNorthLakeDemo() {
+    const pAdvising = uid();
+    const pFinAid = uid();
+    const pCounseling = uid();
+    const pInfoCentral = uid();
+    const pFoodPantry = uid();
+    const pStudentIds = uid();
+    const pLibrary = uid();
+    const pBookstore = uid();
+    const pPolice = uid();
+
+    const demoPins = [
+      { id: pAdvising, name: "Academic Advising / Success Coaching (A-415)", x: 34, y: 24 },
+      { id: pFinAid, name: "Financial Aid Office (A-419)", x: 30, y: 30 },
+      { id: pCounseling, name: "Counseling & Psychological Services (A-311)", x: 38, y: 19 },
+      { id: pInfoCentral, name: "Information Central (A-310)", x: 32, y: 21 },
+      { id: pFoodPantry, name: "Food Pantry (A-262)", x: 27, y: 34 },
+      { id: pStudentIds, name: "Student IDs (H-201)", x: 66, y: 40 },
+      { id: pLibrary, name: "Library & Tutoring (L-206)", x: 71, y: 24 },
+      { id: pBookstore, name: "Bookstore (K-201)", x: 60, y: 46 },
+      { id: pPolice, name: "Campus Police (C-204)", x: 46, y: 44 },
+    ];
+
+    const cEngl = uid(), cMath = uid(), cBio = uid(), cHist = uid(), cPsyc = uid();
+    const demoClasses = [
+      { id: cEngl, name: "ENGL 1301 – Composition I", days: [1, 3, 5], start: "09:00", end: "09:50", pinId: pInfoCentral, color: CLASS_COLORS[0] },
+      { id: cMath, name: "MATH 1414 – College Algebra", days: [2, 4], start: "11:00", end: "12:15", pinId: pPolice, color: CLASS_COLORS[1] },
+      { id: cBio, name: "BIOL 1406 – Biology for Science Majors I", days: [1, 3, 5], start: "12:30", end: "13:50", pinId: pLibrary, color: CLASS_COLORS[2] },
+      { id: cHist, name: "HIST 1301 – United States History I", days: [2, 4], start: "14:00", end: "15:15", pinId: pInfoCentral, color: CLASS_COLORS[3] },
+      { id: cPsyc, name: "PSYC 2301 – General Psychology", days: [1, 3, 5], start: "14:00", end: "14:50", pinId: pBookstore, color: CLASS_COLORS[4] },
+    ];
+
+    const demoEvents = [
+      { id: uid(), title: "Fall 16-Week Classes Begin", date: "2026-08-24", time: "08:00", pinId: null, location: "", note: "First day of Fall 2026 classes." },
+      { id: uid(), title: "Labor Day — Campus Closed", date: "2026-09-07", time: "", pinId: null, location: "", note: "No classes; college reopens Sept. 8." },
+      { id: uid(), title: "Thanksgiving Break — Campus Closed", date: "2026-11-26", time: "", pinId: null, location: "", note: "College reopens Nov. 30." },
+      { id: uid(), title: "Fall Semester Ends / Final Exams", date: "2026-12-10", time: "", pinId: null, location: "", note: "Fall Session II final exams; semester ends today." },
+    ];
+
+    const demoImportantDates = [
+      { id: uid(), label: "Labor Day (No Classes)", date: "2026-09-07" },
+      { id: uid(), label: "Thanksgiving Break Begins", date: "2026-11-26" },
+      { id: uid(), label: "Final Exams / Semester Ends", date: "2026-12-10" },
+    ];
+
+    const demoAssignments = [
+      { id: uid(), title: "ENGL 1301 — Essay 1 draft", dueDate: "2026-09-11", done: false },
+      { id: uid(), title: "MATH 1414 — Ch. 3 homework set", dueDate: "2026-09-15", done: false },
+      { id: uid(), title: "BIOL 1406 — Lab report 1", dueDate: "2026-09-18", done: false },
+      { id: uid(), title: "HIST 1301 — Reading response 1", dueDate: "2026-09-10", done: true },
+    ];
+
+    const demoBudgetCats = [
+      { id: uid(), name: "Dining Out", weeklyLimit: 40, discretionary: true },
+      { id: uid(), name: "Coffee", weeklyLimit: 15, discretionary: true },
+      { id: uid(), name: "Textbooks & Supplies", weeklyLimit: 30, discretionary: false },
+      { id: uid(), name: "Gas / Transportation", weeklyLimit: 25, discretionary: false },
+    ];
+
+    const demoSubscriptions = [
+      { id: uid(), name: "Spotify", amount: 11.99, cadence: "monthly", renewsOn: "2026-09-05" },
+    ];
+
+    const demoEnrollChecklist = DEFAULT_ENROLL_STEPS.map((text, i) => ({ id: uid(), text, done: i < 9 }));
+
+    setPins(demoPins);
+    setClasses(demoClasses);
+    setEvents(demoEvents);
+    setImportantDates(demoImportantDates);
+    setAssignments(demoAssignments);
+    setBudgetCats(demoBudgetCats);
+    setSubscriptions(demoSubscriptions);
+    setSemester({ total: 1200, startDate: "2026-08-24", endDate: "2026-12-10" });
+    setEnrollChecklist(demoEnrollChecklist);
+    setProfile({ name: "Alex Rivera", school: "Dallas College \u2013 North Lake Campus", studentId: "20261458", photo: "", verified: true });
+    setEnrollment({ email: "arivera047@student.dallascollege.edu", school: "Dallas College \u2013 North Lake Campus", verifiedAt: new Date().toISOString(), verified: true });
+  }
+
   const activeBanners = alerts.filter((a) => !dismissed.includes(a.id)).slice(0, 3);
   const isVerified = !!enrollment?.verified;
   function tryVerify(email) {
@@ -717,7 +810,7 @@ function CampusApp() {
   }
 
   if (!enrollment) {
-    return <EnrollmentGate onVerified={(e) => { setEnrollment(e); setProfile((p) => ({ ...p, school: p.school || e.school })); }} />;
+    return <EnrollmentGate onVerified={(e) => { setEnrollment(e); setProfile((p) => ({ ...p, school: p.school || e.school })); }} onLoadDemo={loadNorthLakeDemo} />;
   }
 
   const TABS = [
