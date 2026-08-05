@@ -237,6 +237,69 @@ function computeSemesterPace(semester, budgetTx) {
   else if (remaining < expectedRemaining * 0.9) status = "warn";
   return { remaining, expectedRemaining, weeklyAllowance, status, spent, totalDays, elapsedDays };
 }
+
+// ---- Money automation helpers ----
+// Keyword -> default category name, used to auto-categorize a Quick Log
+// entry so students don't have to manually pick a category every time.
+const AUTO_CATEGORY_RULES = [
+  { keywords: ["coffee", "starbucks", "latte", "espresso", "dunkin"], categoryName: "Coffee" },
+  { keywords: ["food", "restaurant", "pizza", "burger", "taco", "chipotle", "mcdonald", "doordash", "ubereats", "uber eats", "grubhub", "lunch", "dinner", "breakfast", "chick-fil-a", "chickfila"], categoryName: "Dining Out" },
+  { keywords: ["book", "textbook", "notebook", "pencil", "pen", "supplies", "printer", "printing"], categoryName: "Textbooks & Supplies" },
+  { keywords: ["gas", "uber", "lyft", "parking", "fuel", "shell", "chevron", "exxon", "toll"], categoryName: "Gas / Transportation" },
+];
+function guessCategoryId(note, cats) {
+  const lower = (note || "").toLowerCase();
+  for (const rule of AUTO_CATEGORY_RULES) {
+    if (rule.keywords.some((k) => lower.includes(k))) {
+      const match = cats.find((c) => c.name.toLowerCase() === rule.categoryName.toLowerCase());
+      if (match) return match.id;
+    }
+  }
+  // No keyword match — fall back to the first discretionary category, else the first category at all.
+  const disc = cats.find((c) => c.discretionary);
+  return (disc || cats[0] || {}).id || null;
+}
+// Parses a free-text quick-log entry like "coffee 4.50" or "$12 uber" into
+// { amount, note }. Returns null if no number is found.
+function parseQuickLog(text) {
+  const match = text.match(/(\d+(\.\d{1,2})?)/);
+  if (!match) return null;
+  const amount = parseFloat(match[1]);
+  const note = text.replace(match[0], "").replace(/[$]/g, "").trim();
+  return { amount, note };
+}
+// Scans transaction history for charges that repeat on a roughly weekly or
+// monthly cadence under the same note, and aren't already tracked as a
+// subscription — flags them so the student can add one tap instead of
+// noticing it manually months later.
+function detectRecurringCharges(budgetTx, subscriptions) {
+  const groups = {};
+  budgetTx.forEach((t) => {
+    const key = (t.note || "").trim().toLowerCase();
+    if (!key) return;
+    (groups[key] = groups[key] || []).push(t);
+  });
+  const alreadyTracked = subscriptions.map((s) => s.name.trim().toLowerCase());
+  const results = [];
+  Object.keys(groups).forEach((key) => {
+    if (alreadyTracked.some((n) => key.includes(n) || n.includes(key))) return;
+    const entries = groups[key].sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (entries.length < 2) return;
+    const gaps = [];
+    for (let i = 1; i < entries.length; i++) {
+      gaps.push((new Date(entries[i].date) - new Date(entries[i - 1].date)) / 86400000);
+    }
+    const avgGap = gaps.reduce((s, g) => s + g, 0) / gaps.length;
+    let cadence = null;
+    if (avgGap >= 5 && avgGap <= 9) cadence = "weekly";
+    else if (avgGap >= 25 && avgGap <= 35) cadence = "monthly";
+    if (!cadence) return;
+    const avgAmount = entries.reduce((s, t) => s + t.amount, 0) / entries.length;
+    results.push({ note: groups[key][0].note, amount: Math.round(avgAmount * 100) / 100, cadence, lastDate: entries[entries.length - 1].date, occurrences: entries.length });
+  });
+  return results;
+}
+
 function startOfWeek(d) {
   const date = new Date(d);
   const day = date.getDay();
@@ -286,6 +349,12 @@ function buildBlueBonnetContext({ enrollment, isVerified, classes, assignments, 
   const discLimit = discCats.reduce((s, c) => s + c.weeklyLimit, 0);
   const pace = semester ? computeSemesterPace(semester, budgetTx) : null;
   const upcomingSubs = subscriptions.map((s) => ({ ...s, away: daysUntil(nextRenewalDate(s)) })).filter((s) => s.away <= 7);
+  const recurringCandidates = detectRecurringCharges(budgetTx, subscriptions);
+  const catBreakdown = budgetCats.map((c) => {
+    const spent = spentFor(c.id);
+    const pct = Math.round((spent / c.weeklyLimit) * 100);
+    return `${c.name}: $${spent.toFixed(2)} of $${c.weeklyLimit} (${pct}%)`;
+  });
 
   const lines = [];
   lines.push(`Today is ${now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}.`);
@@ -294,8 +363,10 @@ function buildBlueBonnetContext({ enrollment, isVerified, classes, assignments, 
   lines.push(dueSoon.length ? `Assignments due soon: ${dueSoon.map((a) => `${a.title} (due in ${daysUntil(a.dueDate)}d)`).join("; ")}.` : "No assignments due in the next 5 days.");
   lines.push(todayEvents.length ? `Events today: ${todayEvents.map((e) => e.title).join(", ")}.` : "No events today.");
   lines.push(`Discretionary spending this week: $${discSpent.toFixed(2)} of $${discLimit.toFixed(2)} budgeted.`);
-  if (pace) lines.push(`Semester funds: $${pace.remaining.toFixed(2)} left of $${semester.total}, about $${pace.weeklyAllowance.toFixed(2)}/week to stay on pace.`);
+  if (catBreakdown.length) lines.push(`Weekly category breakdown: ${catBreakdown.join("; ")}.`);
+  if (pace) lines.push(`Semester funds: $${pace.remaining.toFixed(2)} left of $${semester.total}, about $${pace.weeklyAllowance.toFixed(2)}/week to stay on pace. Pace status: ${pace.status}.`);
   if (upcomingSubs.length) lines.push(`Subscriptions renewing soon: ${upcomingSubs.map((s) => `${s.name} in ${s.away}d ($${s.amount})`).join("; ")}.`);
+  if (recurringCandidates.length) lines.push(`Auto-detected recurring charges not yet tracked as subscriptions: ${recurringCandidates.map((r) => `${r.note} (~$${r.amount}/${r.cadence})`).join("; ")}.`);
   return lines.join(" ");
 }
 
@@ -474,7 +545,11 @@ function BlueBonnetChat({ contextText, onClose }) {
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 1000,
-          system: `You are Blue Bonnet, a friendly, concise campus assistant built into the Campus app. Use the live context below about this specific student's schedule, budget, and deadlines to answer their questions. Only rely on this context for their personal data — don't invent specifics you weren't given. Keep answers short and conversational. Context: ${contextText}`,
+          system: `You are Blue Bonnet, a friendly, concise campus assistant built into the Campus app. Use the live context below about this specific student's schedule, budget, and deadlines to answer their questions. Only rely on this context for their personal data — don't invent specifics you weren't given. Keep answers short and conversational.
+
+Money coaching: you have this student's real weekly spending by category, their semester budget pace, upcoming subscription renewals, and any recurring charges the app has auto-detected. Be proactive about money, not just reactive — if they're close to a category limit, off pace for the semester, or have an unreviewed recurring charge, mention it naturally even if they didn't ask. Keep advice specific to their actual numbers (not generic budgeting tips), and keep the tone supportive, not preachy — the goal is to help a first-time-on-their-own student build good habits, not make them feel bad about spending.
+
+Context: ${contextText}`,
           messages: apiMessages,
         }),
       });
@@ -668,6 +743,17 @@ function CampusApp() {
         pushAlert(`sub-${sub.id}-${nd.toDateString()}`, `${sub.name} renews ${away === 0 ? "today" : `in ${away} day${away > 1 ? "s" : ""}`} — ${fmtMoney(sub.amount)}.`, "warn");
       }
     });
+    if (semester) {
+      const pace = computeSemesterPace(semester, budgetTx);
+      if (pace.status !== "ok") {
+        pushAlert(`pace-${pace.status}-${todayStr}`, pace.status === "over"
+          ? `You're spending faster than your semester budget can sustain — about ${fmtMoney(pace.weeklyAllowance)}/week keeps you on track.`
+          : `Getting close to outpacing your semester budget — aim for around ${fmtMoney(pace.weeklyAllowance)}/week.`, pace.status);
+      }
+    }
+    detectRecurringCharges(budgetTx, subscriptions).forEach((r) => {
+      pushAlert(`recurring-${r.note}-${r.cadence}`, `"${r.note}" looks like a recurring ${r.cadence} charge (~${fmtMoney(r.amount)}) — want to track it as a subscription? Check the Budget tab.`, "info");
+    });
     importantDates.forEach((d) => {
       const away = daysUntil(d.date);
       if (away >= 0 && away <= 3) {
@@ -688,7 +774,7 @@ function CampusApp() {
     const interval = setInterval(runChecks, 30000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, classes, pins, events, subscriptions, importantDates, assignments]);
+  }, [loading, classes, pins, events, subscriptions, importantDates, assignments, semester, budgetTx]);
 
   // ---- budget helpers ----
   const weekStart = startOfWeek(new Date());
@@ -1911,15 +1997,48 @@ function BudgetTab({ cats, setCats, spentFor, addTransaction, tx, setTx, semeste
   const [showSemesterSetup, setShowSemesterSetup] = useState(false);
   const [showAddSub, setShowAddSub] = useState(false);
   const [showAddSplit, setShowAddSplit] = useState(false);
+  const [quickLog, setQuickLog] = useState("");
+  const [quickLogMsg, setQuickLogMsg] = useState("");
+  const [dismissedRecurring, setDismissedRecurring] = useState([]);
   const pace = semester ? computeSemesterPace(semester, budgetTx) : null;
   const totalMonthlySubs = subscriptions.reduce((s, sub) => s + monthlyCost(sub), 0);
+  const recurringCandidates = detectRecurringCharges(budgetTx, subscriptions).filter((r) => !dismissedRecurring.includes(r.note + r.cadence));
   const balances = {};
   splits.filter((s) => !s.settled).forEach((s) => {
     balances[s.person] = (balances[s.person] || 0) + (s.iOwe ? -s.amount : s.amount);
   });
 
+  function submitQuickLog() {
+    const parsed = parseQuickLog(quickLog);
+    if (!parsed || !parsed.amount) { setQuickLogMsg('Include an amount, e.g. "coffee 4.50".'); return; }
+    const catId = guessCategoryId(parsed.note, cats);
+    if (!catId) { setQuickLogMsg("Add a category first."); return; }
+    addTransaction(catId, parsed.amount, parsed.note);
+    const cat = cats.find((c) => c.id === catId);
+    setQuickLogMsg(`Logged ${fmtMoney(parsed.amount)} to ${cat ? cat.name : "a category"}.`);
+    setQuickLog("");
+  }
+
   return (
     <div>
+      {/* quick log — auto-categorizes from a single line of free text */}
+      <div className="rounded-xl p-3.5 mb-4" style={{ background: "#FBFBF6", border: "1px solid #D8DBCF", boxShadow: "0 1px 2px rgba(27,36,48,0.04), 0 4px 14px -4px rgba(27,36,48,0.08)" }}>
+        <p className="text-xs font-semibold mb-1.5 flex items-center gap-1.5" style={{ color: "#3B4B6B" }}><Sparkles size={13} /> Quick log</p>
+        <div className="flex gap-2">
+          <input
+            value={quickLog}
+            onChange={(e) => { setQuickLog(e.target.value); setQuickLogMsg(""); }}
+            onKeyDown={(e) => e.key === "Enter" && submitQuickLog()}
+            placeholder='e.g. "coffee 4.50" or "uber 12"'
+            className="flex-1 px-3 py-2 rounded-xl text-sm"
+            style={inputStyle}
+          />
+          <button onClick={submitQuickLog} className="px-3 rounded-xl" style={{ background: "#3B4B6B", color: "white" }}><Check size={16} /></button>
+        </div>
+        {quickLogMsg && <p className="text-xs mt-1.5" style={{ color: "#5B6470" }}>{quickLogMsg}</p>}
+        <p className="text-[11px] mt-1.5" style={{ color: "#9098A0" }}>Category is guessed from what you type — no need to pick one yourself.</p>
+      </div>
+
       {/* semester allowance */}
       <div className="rounded-xl p-4 mb-4" style={{ background: "#FBFBF6", border: "1px solid #D8DBCF", borderTop: "3px dashed #C3C7B8", boxShadow: "0 2px 4px rgba(27,36,48,0.05), 0 10px 24px -8px rgba(59,75,107,0.18)" }}>
         <div className="flex items-center justify-between mb-1">
@@ -2021,6 +2140,36 @@ function BudgetTab({ cats, setCats, spentFor, addTransaction, tx, setTx, semeste
         <Modal title="Add subscription" onClose={() => setShowAddSub(false)}>
           <AddSubForm onSave={(sub) => { setSubscriptions((p) => [...p, sub]); setShowAddSub(false); }} />
         </Modal>
+      )}
+
+      {/* auto-detected recurring charges */}
+      {recurringCandidates.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5" style={{ color: "#C77D2D" }}><RefreshCw size={13} /> Looks recurring</p>
+          {recurringCandidates.map((r) => (
+            <div key={r.note + r.cadence} className="rounded-xl p-3 flex items-center justify-between" style={{ background: "#FBFBF6", border: "1px dashed #C77D2D" }}>
+              <div>
+                <p className="text-sm font-medium">{r.note}</p>
+                <p className="text-xs" style={{ color: "#5B6470" }}>~{fmtMoney(r.amount)}/{r.cadence} · seen {r.occurrences}x</p>
+              </div>
+              <div className="flex gap-1.5 flex-shrink-0">
+                <button
+                  onClick={() => {
+                    setSubscriptions((prev) => [...prev, { id: uid(), name: r.note, amount: r.amount, cadence: r.cadence, renewsOn: r.lastDate }]);
+                    setDismissedRecurring((prev) => [...prev, r.note + r.cadence]);
+                  }}
+                  className="text-xs px-2 py-1.5 rounded-lg"
+                  style={{ background: "#3B4B6B", color: "white" }}
+                >
+                  Track it
+                </button>
+                <button onClick={() => setDismissedRecurring((prev) => [...prev, r.note + r.cadence])} className="text-xs px-2 py-1.5 rounded-lg" style={{ border: "1px solid #D8DBCF", color: "#5B6470" }}>
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* split expenses */}
@@ -2160,10 +2309,39 @@ function MapTab({ pins, setPins }) {
       </div>
 
       <svg ref={svgRef} viewBox="0 0 100 63.6" onClick={handleClick} className="w-full rounded-xl" style={{ background: "#E3E6DA", cursor: addMode ? "crosshair" : "default", border: "1px solid #D8DBCF" }}>
-        {/* schematic quad paths */}
-        <rect x="20" y="14" width="60" height="36" fill="#EEF0E6" stroke="#C3C7B8" strokeWidth="0.4" />
-        <line x1="20" y1="32" x2="80" y2="32" stroke="#C3C7B8" strokeWidth="0.4" />
-        <line x1="50" y1="14" x2="50" y2="50" stroke="#C3C7B8" strokeWidth="0.4" />
+        {/* Original schematic campus illustration — not a copy of any
+            official campus map, just a simplified layout for the pin/walk-
+            time feature to work against, loosely labeled after the real
+            building letters (A, C, H, K, L) and the actual lake the campus
+            is named for. */}
+        <rect x="4" y="4" width="92" height="55.6" rx="2" fill="#EEF0E6" stroke="#C3C7B8" strokeWidth="0.4" />
+
+        {/* North Lake */}
+        <ellipse cx="26" cy="49" rx="16" ry="9" fill="#B7D3DC" stroke="#8FB7C4" strokeWidth="0.4" />
+        <text x="26" y="49.8" fontSize="2.6" textAnchor="middle" fill="#3B6570" fontFamily="Inter, sans-serif" fontStyle="italic">North Lake</text>
+
+        {/* Pathways */}
+        <line x1="32" y1="17" x2="66" y2="15" stroke="#C3C7B8" strokeWidth="0.6" strokeDasharray="1,1" />
+        <line x1="46" y1="18" x2="46" y2="29" stroke="#C3C7B8" strokeWidth="0.6" strokeDasharray="1,1" />
+        <line x1="46" y1="29" x2="66" y2="25" stroke="#C3C7B8" strokeWidth="0.6" strokeDasharray="1,1" />
+        <line x1="61" y1="29" x2="61" y2="18" stroke="#C3C7B8" strokeWidth="0.6" strokeDasharray="1,1" />
+
+        {/* Building blocks, labeled after real North Lake building letters */}
+        <rect x="22" y="8" width="20" height="16" rx="1.2" fill="#DDE1D2" stroke="#B5BBA6" strokeWidth="0.4" />
+        <text x="24" y="12.5" fontSize="3.6" fontWeight="700" textAnchor="start" fill="#5B6470" fontFamily="Inter, sans-serif">A</text>
+
+        <rect x="41" y="25" width="12" height="10" rx="1.2" fill="#DDE1D2" stroke="#B5BBA6" strokeWidth="0.4" />
+        <text x="43" y="34" fontSize="3.2" fontWeight="700" textAnchor="start" fill="#5B6470" fontFamily="Inter, sans-serif">C</text>
+
+        <rect x="58" y="19" width="12" height="7" rx="1.2" fill="#DDE1D2" stroke="#B5BBA6" strokeWidth="0.4" />
+        <text x="60" y="22.2" fontSize="3" fontWeight="700" textAnchor="start" fill="#5B6470" fontFamily="Inter, sans-serif">H</text>
+
+        <rect x="54" y="27" width="12" height="7" rx="1.2" fill="#DDE1D2" stroke="#B5BBA6" strokeWidth="0.4" />
+        <text x="56" y="30.2" fontSize="3" fontWeight="700" textAnchor="start" fill="#5B6470" fontFamily="Inter, sans-serif">K</text>
+
+        <rect x="61" y="8" width="16" height="12" rx="1.2" fill="#DDE1D2" stroke="#B5BBA6" strokeWidth="0.4" />
+        <text x="63" y="12" fontSize="3.4" fontWeight="700" textAnchor="start" fill="#5B6470" fontFamily="Inter, sans-serif">L</text>
+
         {pins.map((p) => (
           <g key={p.id}>
             <circle cx={p.x} cy={p.y * 0.636} r="1.6" fill="#3B4B6B" stroke="white" strokeWidth="0.4" />
@@ -2172,6 +2350,7 @@ function MapTab({ pins, setPins }) {
         ))}
       </svg>
       <p className="text-xs mt-2" style={{ color: "#5B6470" }}>Tap "Pin" then tap the map to mark a building. Walk-time warnings on your schedule use these pins.</p>
+      <p className="text-[11px] mt-1" style={{ color: "#9098A0" }}>Simplified schematic, not an official campus map — check your school's real map/app for exact building layouts.</p>
 
       <div className="mt-4 space-y-2">
         {pins.map((p) => (
