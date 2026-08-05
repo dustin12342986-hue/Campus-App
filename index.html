@@ -8,23 +8,35 @@
 <!-- Tailwind utility classes used throughout the app -->
 <script src="https://cdn.tailwindcss.com"></script>
 
-<!-- Import map: lets the browser resolve bare "react" / "lucide-react"
-     specifiers to real ES module builds, no bundler required -->
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.3.1",
-    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.400.0?external=react"
-  }
-}
-</script>
+<!-- React + ReactDOM (classic global builds, no bundler / import map needed) -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+<!-- Lucide icon data (plain browser build, not lucide-react) -->
+<script src="https://unpkg.com/lucide@latest"></script>
 
 <!-- Babel Standalone: transforms JSX in the browser at load time, so this
      stays a single static file with no build step -->
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
+<div id="debug-log" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#B4432F; color:white; font-family:monospace; font-size:12px; padding:12px; white-space:pre-wrap; max-height:60vh; overflow:auto;"></div>
+<script>
+  (function () {
+    var logEl = document.getElementById("debug-log");
+    function showError(msg) {
+      logEl.style.display = "block";
+      logEl.textContent += msg + "\n\n";
+    }
+    window.addEventListener("error", function (e) {
+      showError("ERROR: " + e.message + " (" + (e.filename || "") + ":" + (e.lineno || "") + ")");
+    });
+    window.addEventListener("unhandledrejection", function (e) {
+      showError("UNHANDLED PROMISE REJECTION: " + (e.reason && e.reason.message ? e.reason.message : e.reason));
+    });
+  })();
+</script>
+
 <div id="root"></div>
 
 <script>
@@ -35,49 +47,98 @@
   // unchanged. Data persists per-browser/device only — there's no shared
   // backend, so it won't sync across a student's phone and laptop.
   window.storage = {
-    get: async (key, shared) => {
-      const raw = localStorage.getItem(key);
+    get: async function (key, shared) {
+      var raw = localStorage.getItem(key);
       if (raw === null) throw new Error("Key not found: " + key);
-      return { key, value: raw, shared: !!shared };
+      return { key: key, value: raw, shared: !!shared };
     },
-    set: async (key, value, shared) => {
+    set: async function (key, value, shared) {
       try {
         localStorage.setItem(key, value);
-        return { key, value, shared: !!shared };
+        return { key: key, value: value, shared: !!shared };
       } catch (e) {
         return null;
       }
     },
-    delete: async (key, shared) => {
+    delete: async function (key, shared) {
       localStorage.removeItem(key);
-      return { key, deleted: true, shared: !!shared };
+      return { key: key, deleted: true, shared: !!shared };
     },
-    list: async (prefix, shared) => {
-      const keys = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!prefix || k.startsWith(prefix)) keys.push(k);
+    list: async function (prefix, shared) {
+      var keys = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (!prefix || k.indexOf(prefix) === 0) keys.push(k);
       }
-      return { keys, prefix, shared: !!shared };
-    },
+      return { keys: keys, prefix: prefix, shared: !!shared };
+    }
   };
 </script>
 
-<script type="text/babel" data-type="module" data-presets="react">
-import React, { useState, useEffect, useRef } from "react";
-import { createRoot } from "react-dom/client";
-import {
-  Home, CalendarDays, Wallet, MapPin, PartyPopper, Bell, Plus, X, Trash2,
-  ChevronDown, ChevronUp, AlertTriangle, Check, Clock, Footprints, Pin as PinIcon,
-  RefreshCw, Users, Flag, Settings, ListChecks, LifeBuoy, CreditCard, Camera,
-  ShieldCheck, Phone, ExternalLink, ShieldAlert, MessageCircle, Send, Sparkles,
-} from "lucide-react";
+<script type="text/plain" id="app-source">const { useState, useEffect, useRef } = React;
 
 // Shared with the ADV Media broadcast-crew proxy since it's the same GitHub
 // Pages origin (dustin12342986-hue.github.io covers every repo under this
 // account). Swap this for a separate Cloudflare Worker URL later if you'd
 // rather keep Campus app usage/billing tracked separately.
 const PROXY_URL = "https://bluebonnetproxy.dustin12342986.workers.dev";
+
+// ---- Icon components (replaces the "lucide-react" import) ----
+// Renders from the plain "lucide" browser build (window.lucide.icons),
+// with graceful fallback to an empty placeholder if an icon name doesn't
+// resolve, so a naming mismatch never blanks the whole app.
+function LucideIcon({ name, altNames, size = 16, color = "currentColor", strokeWidth = 2, ...rest }) {
+  const candidates = [name, ...(altNames || [])];
+  let data = null;
+  if (window.lucide && window.lucide.icons) {
+    for (const c of candidates) {
+      if (window.lucide.icons[c]) { data = window.lucide.icons[c]; break; }
+    }
+  }
+  if (!data) {
+    return React.createElement("span", { style: { display: "inline-block", width: size, height: size } });
+  }
+  return React.createElement(
+    "svg",
+    { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round", ...rest },
+    data.map((el, i) => React.createElement(el[0], { key: i, ...el[1] }))
+  );
+}
+function makeIcon(name, altNames) {
+  return function (props) { return React.createElement(LucideIcon, { name, altNames, ...props }); };
+}
+const Home = makeIcon("home");
+const CalendarDays = makeIcon("calendar-days");
+const Wallet = makeIcon("wallet");
+const MapPin = makeIcon("map-pin");
+const PartyPopper = makeIcon("party-popper");
+const Bell = makeIcon("bell");
+const Plus = makeIcon("plus");
+const X = makeIcon("x");
+const Trash2 = makeIcon("trash-2", ["trash-2", "trash"]);
+const ChevronDown = makeIcon("chevron-down");
+const ChevronUp = makeIcon("chevron-up");
+const AlertTriangle = makeIcon("triangle-alert", ["alert-triangle"]);
+const Check = makeIcon("check");
+const Clock = makeIcon("clock");
+const Footprints = makeIcon("footprints");
+const PinIcon = makeIcon("pin");
+const RefreshCw = makeIcon("refresh-cw");
+const Users = makeIcon("users");
+const Flag = makeIcon("flag");
+const Settings = makeIcon("settings");
+const ListChecks = makeIcon("list-checks");
+const LifeBuoy = makeIcon("life-buoy");
+const CreditCard = makeIcon("credit-card");
+const Camera = makeIcon("camera");
+const ShieldCheck = makeIcon("shield-check");
+const Phone = makeIcon("phone");
+const ExternalLink = makeIcon("external-link");
+const ShieldAlert = makeIcon("shield-alert");
+const MessageCircle = makeIcon("message-circle");
+const Send = makeIcon("send");
+const Sparkles = makeIcon("sparkles");
+
 
 /* ---------- tokens ----------
   bg #EEF0E6 paper sage | card #FBFBF6 | ink #1B2430 | soft #5B6470 | line #D8DBCF
@@ -1862,8 +1923,22 @@ function AddEventModal({ pins, onClose, onAdd }) {
 
 
 const rootEl = document.getElementById("root");
-createRoot(rootEl).render(<CampusApp />);
-
+ReactDOM.createRoot(rootEl).render(React.createElement(CampusApp));
+</script>
+<script>
+  (function () {
+    var src = document.getElementById("app-source").textContent;
+    try {
+      var out = Babel.transform(src, { presets: [["react", { runtime: "classic" }]] }).code;
+      var s = document.createElement("script");
+      s.text = out;
+      document.body.appendChild(s);
+    } catch (e) {
+      var logEl = document.getElementById("debug-log");
+      logEl.style.display = "block";
+      logEl.textContent += "BABEL TRANSFORM ERROR: " + e.message + "\n\n";
+    }
+  })();
 </script>
 </body>
 </html>
