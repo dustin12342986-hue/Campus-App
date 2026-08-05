@@ -541,6 +541,7 @@ function CampusApp() {
   const [splits, setSplits] = useState([]);
   const [importantDates, setImportantDates] = useState([]);
   const [assignments, setAssignments] = useState([]);
+  const [checklist, setChecklist] = useState({});
   const [profile, setProfile] = useState({ name: "", school: "", studentId: "", photo: "", verified: false });
   const [enrollment, setEnrollment] = useState(null);
   const [enrollChecklist, setEnrollChecklist] = useState([]);
@@ -577,6 +578,7 @@ function CampusApp() {
       setSplits(await loadKey("campus-splits", []));
       setImportantDates(await loadKey("campus-dates", []));
       setAssignments(await loadKey("campus-assignments", []));
+      setChecklist(await loadKey("campus-checklist", {}));
       setProfile(await loadKey("campus-profile", { name: "", school: "", studentId: "", photo: "", verified: false }));
       setEnrollment(await loadKey("campus-enrollment", null));
       setEnrollChecklist(await loadKey("campus-enrollment-checklist", DEFAULT_ENROLL_STEPS.map((text) => ({ id: uid(), text, done: false }))));
@@ -604,6 +606,7 @@ function CampusApp() {
   useEffect(() => { if (initialized.current) persist("campus-splits", splits); }, [splits]);
   useEffect(() => { if (initialized.current) persist("campus-dates", importantDates); }, [importantDates]);
   useEffect(() => { if (initialized.current) persist("campus-assignments", assignments); }, [assignments]);
+  useEffect(() => { if (initialized.current) persist("campus-checklist", checklist); }, [checklist]);
   useEffect(() => { if (initialized.current) persist("campus-profile", profile); }, [profile]);
   useEffect(() => { if (initialized.current && enrollment) persist("campus-enrollment", enrollment); }, [enrollment]);
   useEffect(() => { if (initialized.current) persist("campus-enrollment-checklist", enrollChecklist); }, [enrollChecklist]);
@@ -719,6 +722,7 @@ function CampusApp() {
 
   const TABS = [
     { id: "today", label: "Today", icon: Home },
+    { id: "checklist", label: "Checklist", icon: ListChecks },
     { id: "schedule", label: "Schedule", icon: CalendarDays },
     { id: "budget", label: "Budget", icon: Wallet },
     { id: "map", label: "Map", icon: MapPin },
@@ -768,6 +772,7 @@ function CampusApp() {
       <div key={tab} className="campus-fade-in max-w-md mx-auto px-5 pt-4">
         {tab === "today" && <TodayTab classes={classes} pins={pins} events={events} budgetCats={budgetCats} spentFor={spentFor} semester={semester} subscriptions={subscriptions} budgetTx={budgetTx} assignments={assignments} isVerified={isVerified} school={enrollment.school} tryVerify={tryVerify} enrollChecklist={enrollChecklist} setEnrollChecklist={setEnrollChecklist} />}
         {tab === "schedule" && <ScheduleTab classes={classes} setClasses={setClasses} pins={pins} importantDates={importantDates} setImportantDates={setImportantDates} assignments={assignments} setAssignments={setAssignments} isVerified={isVerified} school={enrollment.school} tryVerify={tryVerify} />}
+        {tab === "checklist" && <ChecklistTab classes={classes} pins={pins} checklist={checklist} setChecklist={setChecklist} pushAlert={pushAlert} />}
         {tab === "budget" && (
           <BudgetTab
             cats={budgetCats} setCats={setBudgetCats} spentFor={spentFor} addTransaction={addTransaction} tx={budgetTx} setTx={setBudgetTx}
@@ -968,6 +973,156 @@ const DEFAULT_ENROLL_STEPS = [
   "Pay your tuition deposit or set up a payment plan",
   "Order your student ID and check on-campus housing/parking if needed",
 ];
+
+// ---- Student Checklist ----
+// Same skeleton as the broadcast-crew checklist: every class gets a fixed,
+// standard checklist for each session (not something the student builds
+// themselves), split into a Before-Class phase and an After-Class phase.
+// Keyed by [dateStr][classId] so today's Chem 101 and next Monday's Chem 101
+// are tracked separately, same as the broadcast app keys by game/event ID.
+const BEFORE_CLASS_ITEMS = [
+  "Packed materials (notebook, laptop, textbook)",
+  "Reviewed previous notes or slides",
+  "Completed any assigned reading or pre-work",
+  "Charged laptop/device",
+];
+const AFTER_CLASS_ITEMS = [
+  "Took or organized notes from today",
+  "Logged any new assignments or due dates",
+  "Noted questions for next class or office hours",
+  "Checked what's due before next class",
+];
+function emptyChecklistEntry() {
+  return {
+    before: BEFORE_CLASS_ITEMS.map(() => false),
+    after: AFTER_CLASS_ITEMS.map(() => false),
+    signaled: false,
+    helpRequested: false,
+  };
+}
+function ChecklistPhase({ title, items, checked, onToggle, locked, lockedNote }) {
+  const [open, setOpen] = useState(!locked);
+  const doneCount = checked.filter(Boolean).length;
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ background: "#FBFBF6", border: "1px solid #D8DBCF" }}>
+      <button onClick={() => !locked && setOpen((v) => !v)} className="w-full flex items-center justify-between p-3" style={{ opacity: locked ? 0.55 : 1 }}>
+        <span className="text-sm font-semibold" style={{ fontFamily: "Fraunces, serif" }}>{title}</span>
+        <span className="flex items-center gap-2">
+          <span className="text-xs" style={{ color: "#5B6470" }}>{doneCount}/{items.length}</span>
+          {!locked && (open ? <ChevronUp size={15} color="#5B6470" /> : <ChevronDown size={15} color="#5B6470" />)}
+        </span>
+      </button>
+      {locked && <p className="text-xs px-3 pb-3" style={{ color: "#5B6470" }}>{lockedNote}</p>}
+      {!locked && open && (
+        <div className="px-3 pb-3 space-y-2">
+          {items.map((label, i) => (
+            <button key={i} onClick={() => onToggle(i)} className="w-full flex items-center gap-2 text-left text-sm">
+              <div className="w-4 h-4 rounded-md flex items-center justify-center flex-shrink-0" style={{ border: "1px solid #3B4B6B", background: checked[i] ? "#3B4B6B" : "white" }}>
+                {checked[i] && <Check size={11} color="white" />}
+              </div>
+              <span style={{ textDecoration: checked[i] ? "line-through" : "none", color: checked[i] ? "#9098A0" : "#1B2430" }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+function ChecklistTab({ classes, pins, checklist, setChecklist, pushAlert }) {
+  const now = new Date();
+  const dayIdx = now.getDay();
+  const todayStr = now.toDateString();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const todays = classes.filter((c) => c.days.includes(dayIdx)).sort((a, b) => parseTime(a.start) - parseTime(b.start));
+
+  function getEntry(classId) {
+    return (checklist[todayStr] && checklist[todayStr][classId]) || emptyChecklistEntry();
+  }
+  function updateEntry(classId, patch) {
+    setChecklist((prev) => {
+      const day = prev[todayStr] || {};
+      const entry = day[classId] || emptyChecklistEntry();
+      return { ...prev, [todayStr]: { ...day, [classId]: { ...entry, ...patch } } };
+    });
+  }
+  function toggleItem(classId, phase, index) {
+    const entry = getEntry(classId);
+    const arr = entry[phase].slice();
+    arr[index] = !arr[index];
+    updateEntry(classId, { [phase]: arr });
+  }
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: "Fraunces, serif", fontWeight: 600 }} className="text-lg mb-1">Today's Checklist</h2>
+      <p className="text-xs mb-3" style={{ color: "#5B6470" }}>A standard before/after checklist for each of today's classes — nothing to build yourself, just work through it.</p>
+      {todays.length === 0 && (
+        <div className="rounded-xl p-4 text-sm text-center" style={{ background: "#FBFBF6", border: "1px solid #D8DBCF", color: "#5B6470" }}>
+          No classes scheduled today.
+        </div>
+      )}
+      <div className="space-y-4">
+        {todays.map((c) => {
+          const entry = getEntry(c.id);
+          const pin = pins.find((p) => p.id === c.pinId);
+          const classOver = nowMin >= parseTime(c.end);
+          const beforeDone = entry.before.every(Boolean);
+          const afterDone = entry.after.every(Boolean);
+          return (
+            <div key={c.id} className="rounded-xl p-3.5" style={{ background: "white", border: "1px solid #D8DBCF", boxShadow: "0 1px 2px rgba(27,36,48,0.04), 0 4px 14px -4px rgba(27,36,48,0.08)" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: c.color || "#3B4B6B" }} />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold" style={{ fontFamily: "Fraunces, serif" }}>{c.name}</p>
+                  <p className="text-xs" style={{ color: "#5B6470" }}>{fmtTime(c.start)} – {fmtTime(c.end)}{pin ? ` · ${pin.name}` : ""}</p>
+                </div>
+                {beforeDone && <Check size={16} color="#1F7A5C" />}
+              </div>
+
+              <div className="space-y-2">
+                <ChecklistPhase
+                  title="Before Class"
+                  items={BEFORE_CLASS_ITEMS}
+                  checked={entry.before}
+                  onToggle={(i) => toggleItem(c.id, "before", i)}
+                />
+                <ChecklistPhase
+                  title="After Class"
+                  items={AFTER_CLASS_ITEMS}
+                  checked={entry.after}
+                  onToggle={(i) => toggleItem(c.id, "after", i)}
+                  locked={!classOver}
+                  lockedNote={`Unlocks once class ends at ${fmtTime(c.end)}.`}
+                />
+              </div>
+
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => updateEntry(c.id, { signaled: !entry.signaled })}
+                  className="flex-1 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5"
+                  style={{ background: entry.signaled ? "#1F7A5C" : "#3B4B6B", color: "white" }}
+                >
+                  <Flag size={13} /> {entry.signaled ? "Ready ✓" : "Signal Ready"}
+                </button>
+                <button
+                  onClick={() => {
+                    updateEntry(c.id, { helpRequested: true });
+                    pushAlert(`help-${c.id}-${todayStr}`, `You flagged needing help with ${c.name}.`, "warn");
+                  }}
+                  disabled={entry.helpRequested}
+                  className="flex-1 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  style={{ background: "white", border: "1px solid #C77D2D", color: "#C77D2D" }}
+                >
+                  <LifeBuoy size={13} /> {entry.helpRequested ? "Help requested" : "Request Help"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 function enrollChecklistKey() { return "campus-enrollment-checklist"; }
 
 function EnrollmentChecklistCard({ isVerified, items, setItems }) {
