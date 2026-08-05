@@ -303,9 +303,12 @@ function BrandMark({ size = 36 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 36 36" style={{ flexShrink: 0 }}>
       <rect width="36" height="36" rx="9" fill="#3B4B6B" />
-      <line x1="9" y1="18" x2="27" y2="18" stroke="#F4C77A" strokeWidth="2" />
-      <line x1="18" y1="9" x2="18" y2="27" stroke="#F4C77A" strokeWidth="2" />
-      <circle cx="18" cy="18" r="3" fill="#FBFBF6" />
+      {/* Mortarboard (graduation cap) — a plain, unambiguous college symbol */}
+      <polygon points="18,9 29,16 18,23 7,16" fill="#F4C77A" />
+      <path d="M12 18.5 V24 C12 26.5 24 26.5 24 24 V18.5" stroke="#F4C77A" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+      <circle cx="18" cy="16" r="1.8" fill="#FBFBF6" />
+      <line x1="18" y1="16" x2="25" y2="25" stroke="#FBFBF6" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="25" cy="25" r="1.5" fill="#FBFBF6" />
     </svg>
   );
 }
@@ -547,6 +550,7 @@ function CampusApp() {
   const [importantDates, setImportantDates] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [checklist, setChecklist] = useState({});
+  const [lifeChecklist, setLifeChecklist] = useState({ daily: {}, weekly: {} });
   const [profile, setProfile] = useState({ name: "", school: "", studentId: "", photo: "", verified: false });
   const [enrollment, setEnrollment] = useState(null);
   const [enrollChecklist, setEnrollChecklist] = useState([]);
@@ -584,6 +588,7 @@ function CampusApp() {
       setImportantDates(await loadKey("campus-dates", []));
       setAssignments(await loadKey("campus-assignments", []));
       setChecklist(await loadKey("campus-checklist", {}));
+      setLifeChecklist(await loadKey("campus-life-checklist", { daily: {}, weekly: {} }));
       setProfile(await loadKey("campus-profile", { name: "", school: "", studentId: "", photo: "", verified: false }));
       setEnrollment(await loadKey("campus-enrollment", null));
       setEnrollChecklist(await loadKey("campus-enrollment-checklist", DEFAULT_ENROLL_STEPS.map((text) => ({ id: uid(), text, done: false }))));
@@ -612,6 +617,7 @@ function CampusApp() {
   useEffect(() => { if (initialized.current) persist("campus-dates", importantDates); }, [importantDates]);
   useEffect(() => { if (initialized.current) persist("campus-assignments", assignments); }, [assignments]);
   useEffect(() => { if (initialized.current) persist("campus-checklist", checklist); }, [checklist]);
+  useEffect(() => { if (initialized.current) persist("campus-life-checklist", lifeChecklist); }, [lifeChecklist]);
   useEffect(() => { if (initialized.current) persist("campus-profile", profile); }, [profile]);
   useEffect(() => { if (initialized.current && enrollment) persist("campus-enrollment", enrollment); }, [enrollment]);
   useEffect(() => { if (initialized.current) persist("campus-enrollment-checklist", enrollChecklist); }, [enrollChecklist]);
@@ -865,7 +871,7 @@ function CampusApp() {
       <div key={tab} className="campus-fade-in max-w-md mx-auto px-5 pt-4">
         {tab === "today" && <TodayTab classes={classes} pins={pins} events={events} budgetCats={budgetCats} spentFor={spentFor} semester={semester} subscriptions={subscriptions} budgetTx={budgetTx} assignments={assignments} isVerified={isVerified} school={enrollment.school} tryVerify={tryVerify} enrollChecklist={enrollChecklist} setEnrollChecklist={setEnrollChecklist} />}
         {tab === "schedule" && <ScheduleTab classes={classes} setClasses={setClasses} pins={pins} importantDates={importantDates} setImportantDates={setImportantDates} assignments={assignments} setAssignments={setAssignments} isVerified={isVerified} school={enrollment.school} tryVerify={tryVerify} />}
-        {tab === "checklist" && <ChecklistTab classes={classes} pins={pins} checklist={checklist} setChecklist={setChecklist} pushAlert={pushAlert} />}
+        {tab === "checklist" && <ChecklistTab classes={classes} pins={pins} checklist={checklist} setChecklist={setChecklist} lifeChecklist={lifeChecklist} setLifeChecklist={setLifeChecklist} pushAlert={pushAlert} />}
         {tab === "budget" && (
           <BudgetTab
             cats={budgetCats} setCats={setBudgetCats} spentFor={spentFor} addTransaction={addTransaction} tx={budgetTx} setTx={setBudgetTx}
@@ -1085,6 +1091,38 @@ const AFTER_CLASS_ITEMS = [
   "Noted questions for next class or office hours",
   "Checked what's due before next class",
 ];
+// Daily-recurring items (chores + personal wellness), reset each calendar day.
+const DAILY_CHORES_ITEMS = [
+  "Made your bed",
+  "Washed or put away dishes",
+  "Tidied your room/living space",
+  "Took out trash if it's full",
+];
+const DAILY_WELLNESS_ITEMS = [
+  "Ate breakfast (or your first meal)",
+  "Drank enough water today",
+  "Got at least 7 hours of sleep last night",
+  "Took any medications you're on",
+  "Did something active, even a short walk",
+];
+// Weekly-recurring items (money + housing), reset each calendar week.
+const WEEKLY_FINANCIAL_ITEMS = [
+  "Checked your bank account balance",
+  "Paid or scheduled any bills due this week",
+  "Logged this week's spending in Budget",
+  "Set aside something into savings, even a little",
+  "Checked financial aid / scholarship status",
+];
+const WEEKLY_HOUSING_ITEMS = [
+  "Paid rent, if due this week",
+  "Checked mail/packages",
+  "Restocked groceries or household basics",
+  "Did laundry",
+  "Checked in with roommate(s) about shared chores or bills",
+];
+function emptyLifeEntry(items) {
+  return items.map(() => false);
+}
 function emptyChecklistEntry() {
   return {
     before: BEFORE_CLASS_ITEMS.map(() => false),
@@ -1121,10 +1159,11 @@ function ChecklistPhase({ title, items, checked, onToggle, locked, lockedNote })
     </div>
   );
 }
-function ChecklistTab({ classes, pins, checklist, setChecklist, pushAlert }) {
+function ChecklistTab({ classes, pins, checklist, setChecklist, lifeChecklist, setLifeChecklist, pushAlert }) {
   const now = new Date();
   const dayIdx = now.getDay();
   const todayStr = now.toDateString();
+  const weekStr = startOfWeek(now).toDateString();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const todays = classes.filter((c) => c.days.includes(dayIdx)).sort((a, b) => parseTime(a.start) - parseTime(b.start));
 
@@ -1145,10 +1184,45 @@ function ChecklistTab({ classes, pins, checklist, setChecklist, pushAlert }) {
     updateEntry(classId, { [phase]: arr });
   }
 
+  // Daily (chores/wellness) and weekly (financial/housing) — same fixed-list
+  // pattern as classes, just keyed by day or by week instead of by class.
+  const dailyEntry = lifeChecklist.daily[todayStr] || { chores: emptyLifeEntry(DAILY_CHORES_ITEMS), wellness: emptyLifeEntry(DAILY_WELLNESS_ITEMS) };
+  const weeklyEntry = lifeChecklist.weekly[weekStr] || { financial: emptyLifeEntry(WEEKLY_FINANCIAL_ITEMS), housing: emptyLifeEntry(WEEKLY_HOUSING_ITEMS) };
+  function toggleDaily(section, index) {
+    const arr = (dailyEntry[section] || emptyLifeEntry(section === "chores" ? DAILY_CHORES_ITEMS : DAILY_WELLNESS_ITEMS)).slice();
+    arr[index] = !arr[index];
+    setLifeChecklist((prev) => ({
+      ...prev,
+      daily: { ...prev.daily, [todayStr]: { ...dailyEntry, [section]: arr } },
+    }));
+  }
+  function toggleWeekly(section, index) {
+    const arr = (weeklyEntry[section] || emptyLifeEntry(section === "financial" ? WEEKLY_FINANCIAL_ITEMS : WEEKLY_HOUSING_ITEMS)).slice();
+    arr[index] = !arr[index];
+    setLifeChecklist((prev) => ({
+      ...prev,
+      weekly: { ...prev.weekly, [weekStr]: { ...weeklyEntry, [section]: arr } },
+    }));
+  }
+
   return (
     <div>
-      <h2 style={{ fontFamily: "Fraunces, serif", fontWeight: 600 }} className="text-lg mb-1">Today's Checklist</h2>
-      <p className="text-xs mb-3" style={{ color: "#5B6470" }}>A standard before/after checklist for each of today's classes — nothing to build yourself, just work through it.</p>
+      <h2 style={{ fontFamily: "Fraunces, serif", fontWeight: 600 }} className="text-lg mb-1">Checklist</h2>
+      <p className="text-xs mb-3" style={{ color: "#5B6470" }}>Standard checklists to keep you structured — classes, daily basics, and weekly life admin. Nothing to build yourself, just work through it.</p>
+
+      <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9098A0" }}>Today</p>
+      <div className="space-y-2 mb-5">
+        <ChecklistPhase title="Chores" items={DAILY_CHORES_ITEMS} checked={dailyEntry.chores} onToggle={(i) => toggleDaily("chores", i)} />
+        <ChecklistPhase title="Personal Wellness" items={DAILY_WELLNESS_ITEMS} checked={dailyEntry.wellness} onToggle={(i) => toggleDaily("wellness", i)} />
+      </div>
+
+      <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9098A0" }}>This Week</p>
+      <div className="space-y-2 mb-5">
+        <ChecklistPhase title="Financial" items={WEEKLY_FINANCIAL_ITEMS} checked={weeklyEntry.financial} onToggle={(i) => toggleWeekly("financial", i)} />
+        <ChecklistPhase title="Housing" items={WEEKLY_HOUSING_ITEMS} checked={weeklyEntry.housing} onToggle={(i) => toggleWeekly("housing", i)} />
+      </div>
+
+      <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9098A0" }}>Today's Classes</p>
       {todays.length === 0 && (
         <div className="rounded-xl p-4 text-sm text-center" style={{ background: "#FBFBF6", border: "1px solid #D8DBCF", color: "#5B6470" }}>
           No classes scheduled today.
