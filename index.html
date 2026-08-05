@@ -428,6 +428,7 @@ function EnrollmentGate({ onVerified, onLoadDemo }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const [showLoginHelp, setShowLoginHelp] = useState(false);
 
   function submit() {
     if (!school.trim()) { setError("Enter your school."); return; }
@@ -490,6 +491,24 @@ function EnrollmentGate({ onVerified, onLoadDemo }) {
         <p className="text-xs mt-2 leading-relaxed" style={{ color: "#9098A0" }}>
           Not registered yet, or don't have your student email? You can still use Campus. Your ID will show as "Pending" instead of "Verified" until you sign in with a matching student email later.
         </p>
+
+        <button onClick={() => setShowLoginHelp((v) => !v)} className="w-full text-xs mt-4 pt-3 flex items-center justify-between" style={{ borderTop: "1px dashed #D8DBCF", color: "#3B4B6B" }}>
+          <span className="flex items-center gap-1.5"><LifeBuoy size={13} /> Trouble logging into Dallas College's real portal?</span>
+          {showLoginHelp ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
+        {showLoginHelp && (
+          <div className="mt-2 text-xs leading-relaxed space-y-2" style={{ color: "#5B6470" }}>
+            <p>This app can't log in for you or handle your real password — but here's what actually fixes most login issues, straight from Dallas College's own help pages:</p>
+            <ul className="list-disc pl-4 space-y-1">
+              <li><strong>Username format:</strong> lowercase "e" + your 7-digit student ID (e.g. student ID 1234567 → username e1234567).</li>
+              <li><strong>First-time login:</strong> your temporary password is the same as your username (e1234567 / e1234567) — you'll be prompted to change it.</li>
+              <li><strong>Forgot your password?</strong> Use "Forgot/Reset My Password" in eConnect, or the Self Service Password Reset tool at <strong>aka.ms/sspr</strong> if you're enrolled in it.</li>
+              <li><strong>Off-campus or on guest Wi-Fi?</strong> Multi-factor authentication (MFA) is required — have your phone ready for a push notification or text code.</li>
+            </ul>
+            <p>Still stuck? Call the real Dallas College Technical Support Center — <strong>972-669-6402</strong> (24/7) or toll-free <strong>1-866-374-7169</strong>.</p>
+            <p style={{ color: "#9098A0" }}>Source: Dallas College's official eConnect &amp; eCampus help pages (dallascollege.edu).</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -548,6 +567,8 @@ function BlueBonnetChat({ contextText, onClose }) {
           system: `You are Blue Bonnet, a friendly, concise campus assistant built into the Campus app. Use the live context below about this specific student's schedule, budget, and deadlines to answer their questions. Only rely on this context for their personal data — don't invent specifics you weren't given. Keep answers short and conversational.
 
 Money coaching: you have this student's real weekly spending by category, their semester budget pace, upcoming subscription renewals, and any recurring charges the app has auto-detected. Be proactive about money, not just reactive — if they're close to a category limit, off pace for the semester, or have an unreviewed recurring charge, mention it naturally even if they didn't ask. Keep advice specific to their actual numbers (not generic budgeting tips), and keep the tone supportive, not preachy — the goal is to help a first-time-on-their-own student build good habits, not make them feel bad about spending.
+
+Dallas College real login help (only use this if the student's school is a Dallas College campus — don't apply it to other schools): you cannot log in for them or handle their real password. Username format is lowercase "e" + their 7-digit student ID (e.g. e1234567). First-time password equals the username, then they're prompted to change it. Forgot password → eConnect's "Forgot/Reset My Password", or Self Service Password Reset at aka.ms/sspr if enrolled. MFA is required off-campus or on guest Wi-Fi. Real support line: 972-669-6402 (24/7) or toll-free 1-866-374-7169.
 
 Context: ${contextText}`,
           messages: apiMessages,
@@ -1159,6 +1180,25 @@ const DEFAULT_ENROLL_STEPS = [
   "Order your student ID and check on-campus housing/parking if needed",
 ];
 
+// Real, current Dallas College links matched by keyword against whatever
+// checklist item text is present — shown only when the student's school is
+// a Dallas College campus, so the enrollment checklist isn't just a list to
+// self-track, it's a direct path to the actual real page for that step.
+const DALLAS_COLLEGE_ENROLL_LINKS = [
+  { keywords: ["admissions application", "submit your admissions"], url: "https://www.dallascollege.edu/apply", label: "Apply now" },
+  { keywords: ["fafsa", "financial aid form"], url: "https://www.dallascollege.edu/faapply", label: "Start FAFSA" },
+  { keywords: ["placement assessment", "tsi", "sat/act"], url: "https://www.dallascollege.edu/TSI", label: "TSI info" },
+  { keywords: ["scholarship"], url: "https://www.dallascollege.edu/scholarships", label: "Scholarships" },
+  { keywords: ["academic advisor", "advisor"], url: "https://www.dallascollege.edu/advising", label: "Advising" },
+  { keywords: ["orientation"], url: "https://www.dallascollege.edu/Orientation", label: "Orientation" },
+  { keywords: ["school email", "student portal login"], url: "https://econnect.dcccd.edu", label: "eConnect" },
+  { keywords: ["register for classes"], url: "https://www.dallascollege.edu/Register", label: "Register" },
+];
+function findDallasEnrollLink(text) {
+  const lower = (text || "").toLowerCase();
+  return DALLAS_COLLEGE_ENROLL_LINKS.find((l) => l.keywords.some((k) => lower.includes(k)));
+}
+
 // ---- Student Checklist ----
 // Same skeleton as the broadcast-crew checklist: every class gets a fixed,
 // standard checklist for each session (not something the student builds
@@ -1378,11 +1418,12 @@ function ChecklistTab({ classes, pins, checklist, setChecklist, lifeChecklist, s
 }
 function enrollChecklistKey() { return "campus-enrollment-checklist"; }
 
-function EnrollmentChecklistCard({ isVerified, items, setItems }) {
+function EnrollmentChecklistCard({ isVerified, items, setItems, school }) {
   const [open, setOpen] = useState(!isVerified);
   const [text, setText] = useState("");
   const done = items.filter((i) => i.done).length;
   const pct = items.length > 0 ? (done / items.length) * 100 : 0;
+  const isDallas = (school || "").toLowerCase().includes("dallas college");
 
   function addItem() {
     if (!text.trim()) return;
@@ -1409,17 +1450,25 @@ function EnrollmentChecklistCard({ isVerified, items, setItems }) {
             <RulerBar pct={pct} status={pct >= 100 ? "ok" : pct >= 50 ? "warn" : "over"} />
           </div>
           <div className="space-y-1.5 mt-3">
-            {items.map((it) => (
-              <div key={it.id} className="flex items-center gap-2 text-sm">
-                <button onClick={() => setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))} className="flex-shrink-0">
-                  <div className="w-4 h-4 rounded-md flex items-center justify-center" style={{ border: "1px solid #3B4B6B", background: it.done ? "#3B4B6B" : "white" }}>
-                    {it.done && <Check size={11} color="white" />}
-                  </div>
-                </button>
-                <span className="flex-1" style={{ textDecoration: it.done ? "line-through" : "none", color: it.done ? "#9098A0" : "#1B2430" }}>{it.text}</span>
-                <button onClick={() => setItems((prev) => prev.filter((x) => x.id !== it.id))}><X size={12} color="#B0B4A6" /></button>
-              </div>
-            ))}
+            {items.map((it) => {
+              const link = isDallas ? findDallasEnrollLink(it.text) : null;
+              return (
+                <div key={it.id} className="flex items-center gap-2 text-sm">
+                  <button onClick={() => setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))} className="flex-shrink-0">
+                    <div className="w-4 h-4 rounded-md flex items-center justify-center" style={{ border: "1px solid #3B4B6B", background: it.done ? "#3B4B6B" : "white" }}>
+                      {it.done && <Check size={11} color="white" />}
+                    </div>
+                  </button>
+                  <span className="flex-1" style={{ textDecoration: it.done ? "line-through" : "none", color: it.done ? "#9098A0" : "#1B2430" }}>{it.text}</span>
+                  {link && (
+                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-0.5 flex-shrink-0 px-1.5 py-0.5 rounded-lg" style={{ color: "#3B4B6B", border: "1px solid #D8DBCF" }}>
+                      {link.label} <ExternalLink size={10} />
+                    </a>
+                  )}
+                  <button onClick={() => setItems((prev) => prev.filter((x) => x.id !== it.id))}><X size={12} color="#B0B4A6" /></button>
+                </div>
+              );
+            })}
           </div>
           <div className="flex gap-1.5 mt-2.5">
             <input
@@ -1460,7 +1509,7 @@ function TodayTab({ classes, pins, events, budgetCats, spentFor, semester, subsc
 
   return (
     <div className="space-y-4">
-      <EnrollmentChecklistCard isVerified={isVerified} items={enrollChecklist} setItems={setEnrollChecklist} />
+      <EnrollmentChecklistCard isVerified={isVerified} items={enrollChecklist} setItems={setEnrollChecklist} school={school} />
       {pace && <SemesterPaceCard pace={pace} total={semester.total} />}
       {heavyDay && (
         <div className="flex items-center gap-2 p-3 rounded-xl text-sm" style={{ background: "rgba(199,125,45,0.1)", borderLeft: "3px solid #C77D2D" }}>
