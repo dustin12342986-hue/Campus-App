@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Campus</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background: linear-gradient(180deg, #F1F3E9 0%, #E9ECE0 60%, #E4E7DA 100%); color:#1B2430; font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
+  button { font-family:inherit; cursor:pointer; border:none; transition: transform .12s ease, box-shadow .15s ease, opacity .15s ease, background .15s ease; background:none; }
+  button:active:not(:disabled) { transform: scale(0.96); }
+  button:disabled { opacity:0.4; cursor:default; }
+  input, select { font-family:inherit; transition: box-shadow .15s ease, border-color .15s ease; }
+  input:focus, select:focus { outline:none; box-shadow:0 0 0 3px rgba(59,75,107,0.15); border-color:#3B4B6B !important; }
+  @keyframes fadeSlideUp { from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  .fade-in { animation: fadeSlideUp .28s ease both; }
+  @keyframes modalUp { from{opacity:0; transform:translateY(24px);} to{opacity:1; transform:translateY(0);} }
+  .modal-up { animation: modalUp .22s cubic-bezier(.16,1,.3,1) both; }
+  ::-webkit-scrollbar { width:0; height:0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* =========================== constants & tokens ===========================
+  bg gradient sage/paper | card #FBFBF6 | ink #1B2430 | soft #5B6470 | line #D8DBCF
+  accent #3B4B6B | ok #1F7A5C | warn #C77D2D | over #B4432F | gold #F4C77A
+============================================================================ */
+const DAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const CLASS_COLORS = ["#3B4B6B","#1F7A5C","#C77D2D","#B4432F","#6B4B8A","#4B7A8A"];
+const SCHOOL_PRESETS = [
+  { name: "Dallas College – North Lake Campus", domains: ["student.dcccd.edu","student.dallascollege.edu"] },
+  { name: "Lone Star Test University (fake — for testing)", domains: ["student.lonestartest.edu"] },
+];
+// Set this to your real Blue Bonnet API endpoint. Left empty, the chat explains it isn't wired up yet.
+const BLUE_BONNET_ENDPOINT = "";
+
+const inputStyle = "border:1px solid #D8DBCF;background:white;width:100%;";
+
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function classChecklistKey(name){ return `checklist-${name.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,80)}`; }
+function schoolChecklistKey(school){ return `student-checklist-${school.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,80)}`; }
+function isAllowedEmail(email, school){
+  const domain = (email.split("@")[1]||"").trim().toLowerCase();
+  if(!domain) return false;
+  const preset = SCHOOL_PRESETS.find(s=>s.name.toLowerCase()===school.trim().toLowerCase());
+  if(preset) return preset.domains.some(d=>domain===d);
+  return domain.endsWith(".edu");
+}
+function parseTime(hhmm){ const [h,m]=hhmm.split(":").map(Number); return h*60+m; }
+function fmtTime(hhmm){
+  const mins=parseTime(hhmm); const h24=Math.floor(mins/60), m=mins%60;
+  const ampm=h24>=12?"PM":"AM"; const h12=h24%12===0?12:h24%12;
+  return `${h12}:${String(m).padStart(2,"0")} ${ampm}`;
+}
+function fmtMoney(n){ return `$${Math.abs(n).toFixed(2)}`; }
+function daysUntil(dateStr){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const d=new Date(dateStr); d.setHours(0,0,0,0);
+  return Math.round((d-now)/86400000);
+}
+function nextRenewalDate(sub){
+  const cadenceDays = sub.cadence==="weekly"?7:sub.cadence==="yearly"?365:30;
+  let d=new Date(sub.renewsOn); const now=new Date();
+  while(d<now) d.setDate(d.getDate()+cadenceDays);
+  return d;
+}
+function monthlyCost(sub){
+  if(sub.cadence==="weekly") return sub.amount*4.33;
+  if(sub.cadence==="yearly") return sub.amount/12;
+  return sub.amount;
+}
+function computeSemesterPace(semester, budgetTx){
+  const start=new Date(semester.startDate), end=new Date(semester.endDate), now=new Date();
+  const totalDays=Math.max(1,(end-start)/86400000);
+  const elapsedDays=Math.min(totalDays, Math.max(0,(now-start)/86400000));
+  const spent=budgetTx.filter(t=>new Date(t.date)>=start).reduce((s,t)=>s+t.amount,0);
+  const remaining=semester.total-spent;
+  const expectedRemaining=semester.total*(1-elapsedDays/totalDays);
+  const weeklyAllowance=semester.total/(totalDays/7);
+  let status="ok";
+  if(remaining<expectedRemaining*0.75) status="over";
+  else if(remaining<expectedRemaining*0.9) status="warn";
+  return {remaining, expectedRemaining, weeklyAllowance, status, spent, totalDays, elapsedDays};
+}
+function startOfWeek(d){ const date=new Date(d); const day=date.getDay(); date.setDate(date.getDate()+(day===0?-6:1-day)); date.setHours(0,0,0,0); return date; }
+function endOfWeek(d){ const s=startOfWeek(d); const e=new Date(s); e.setDate(e.getDate()+6); e.setHours(23,59,59,999); return e; }
+const MAP_FT_W=2200, MAP_FT_H=1400, WALK_FT_PER_MIN=250;
+function walkMinutes(pinA,pinB){
+  if(!pinA||!pinB) return null;
+  const dx=((pinA.x-pinB.x)/100)*MAP_FT_W, dy=((pinA.y-pinB.y)/100)*MAP_FT_H;
+  return Math.max(1, Math.ceil(Math.sqrt(dx*dx+dy*dy)/WALK_FT_PER_MIN));
+}
+function statusFor(pct){ if(pct>=100) return "over"; if(pct>=75) return "warn"; return "ok"; }
+const STATUS_COLOR={ok:"#1F7A5C",warn:"#C77D2D",over:"#B4432F"};
+const STATUS_LABEL={ok:"On track",warn:"Near limit",over:"Over limit"};
+const LEVEL_COLOR={info:"#3B4B6B",warn:"#C77D2D",over:"#B4432F"};
+const LEVEL_ICON={info:"clock",warn:"footprints",over:"alert-triangle"};
+
+/* =============================== storage =============================== */
+const LS = {
+  get(key, fallback){ try{ const v=localStorage.getItem(key); return v===null?fallback:JSON.parse(v); }catch(e){ return fallback; } },
+  set(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); return true; }catch(e){ return false; } },
+};
+
+/* ================================ state ================================= */
+const DEFAULT_ENROLL_STEPS = [
+  "Submit your admissions application",
+  "Request your official high school transcript or GED sent to the school",
+  "Complete the FAFSA (or your state/school financial aid form)",
+  "Take your placement assessment or submit SAT/ACT/TSI scores",
+  "Apply for scholarships you may qualify for",
+  "Meet with an academic advisor to plan your first semester",
+  "Register for new-student orientation",
+  "Submit immunization records (if your school requires them)",
+  "Set up your school email and student portal login",
+  "Register for classes",
+  "Pay your tuition deposit or set up a payment plan",
+  "Order your student ID and check on-campus housing/parking if needed",
+];
+const DEFAULT_BUDGET_CATS = [
+  { id: uid(), name:"Dining Out", weeklyLimit:40, discretionary:true },
+  { id: uid(), name:"Coffee", weeklyLimit:15, discretionary:true },
+  { id: uid(), name:"Textbooks & Supplies", weeklyLimit:30, discretionary:false },
+];
+
+let state = {
+  enrollment: LS.get("campus-enrollment", null),
+  profile: LS.get("campus-profile", { name:"", school:"", studentId:"", photo:"", verified:false }),
+  classes: LS.get("campus-classes", []),
+  pins: LS.get("campus-pins", []),
+  events: LS.get("campus-events", []),
+  budgetCats: LS.get("campus-budget-cats", DEFAULT_BUDGET_CATS),
+  budgetTx: LS.get("campus-budget-tx", []),
+  semester: LS.get("campus-semester", null),
+  subscriptions: LS.get("campus-subscriptions", []),
+  splits: LS.get("campus-splits", []),
+  importantDates: LS.get("campus-dates", []),
+  assignments: LS.get("campus-assignments", []),
+  enrollChecklist: LS.get("campus-enrollment-checklist", DEFAULT_ENROLL_STEPS.map(text=>({id:uid(), text, done:false}))),
+  alerts: LS.get("campus-alerts", []),
+  safetyInfo: LS.get("campus-safety-info", { safetyNumber:"", escortNumber:"" }),
+  supportInfo: LS.get("campus-support-info", { center:"", number:"" }),
+  // ephemeral UI state (not persisted)
+  tab: "today",
+  dismissed: [],
+  scheduleDay: (new Date().getDay()===0?1:new Date().getDay()),
+  openChecklist: null,
+  expandedBudgetCat: null,
+  mapAddMode: false,
+  pendingPin: null,
+  modal: null, // {type, ...}
+  bbMessages: [{role:"assistant", content:"Hi, I'm Blue Bonnet. Ask me about your classes, budget, or what's due soon."}],
+  bbLoading: false,
+  bbError: "",
+  safetyOpen: false, safetyEditing: false,
+  supportOpen: false, supportEditing: false,
+  enrollChecklistOpen: null, // set on first render based on verification
+};
+
+function persist(key, value){ LS.set(key, value); }
+function isVerified(){ return !!(state.enrollment && state.enrollment.verified); }
+
+function tryVerify(email){
+  if(!isAllowedEmail(email, state.enrollment.school)) return false;
+  state.enrollment = {...state.enrollment, email: email.trim(), verified:true, verifiedAt:new Date().toISOString()};
+  persist("campus-enrollment", state.enrollment);
+  return true;
+}
+
+/* ============================ alert engine =============================== */
+const alertedKeys = new Set();
+function pushAlert(key, message, level){
+  if(alertedKeys.has(key)) return;
+  alertedKeys.add(key);
+  state.alerts = [{id:uid(), message, level, timestamp:new Date().toISOString()}, ...state.alerts].slice(0,60);
+  persist("campus-alerts", state.alerts);
+}
+function spentFor(catId){
+  const ws=startOfWeek(new Date()), we=endOfWeek(new Date());
+  return state.budgetTx.filter(t=>t.categoryId===catId).filter(t=>{const d=new Date(t.date); return d>=ws && d<=we;}).reduce((s,t)=>s+t.amount,0);
+}
+function runChecks(){
+  const now=new Date(), todayStr=now.toDateString(), dayIdx=now.getDay();
+  const nowMin=now.getHours()*60+now.getMinutes();
+  const todays=state.classes.filter(c=>c.days.includes(dayIdx)).sort((a,b)=>parseTime(a.start)-parseTime(b.start));
+  todays.forEach(c=>{
+    const startMin=parseTime(c.start);
+    if(nowMin>=startMin-15 && nowMin<startMin){
+      pushAlert(`class-${c.id}-${todayStr}`, `${c.name} starts in ${startMin-nowMin} min${c.location?` at ${c.location}`:""}.`, "info");
+    }
+  });
+  for(let i=0;i<todays.length-1;i++){
+    const a=todays[i], b=todays[i+1];
+    const gap=parseTime(b.start)-parseTime(a.end);
+    const pinA=state.pins.find(p=>p.id===a.pinId), pinB=state.pins.find(p=>p.id===b.pinId);
+    const wm=walkMinutes(pinA,pinB);
+    if(wm!==null && gap<wm+5){
+      pushAlert(`gap-${a.id}-${b.id}-${todayStr}`, `Tight transition: ${a.name} → ${b.name} is a ${wm} min walk but you only have ${gap} min.`, "warn");
+    }
+  }
+  state.events.forEach(ev=>{
+    if(!ev.date || !ev.time) return;
+    if(new Date(ev.date).toDateString()!==todayStr) return;
+    const startMin=parseTime(ev.time);
+    if(nowMin>=startMin-60 && nowMin<startMin){
+      pushAlert(`event-${ev.id}-${todayStr}`, `${ev.title} starts in ${startMin-nowMin} min${ev.location?` at ${ev.location}`:""}.`, "info");
+    }
+  });
+  state.subscriptions.forEach(sub=>{
+    const nd=nextRenewalDate(sub), away=daysUntil(nd);
+    if(away>=0 && away<=3){
+      pushAlert(`sub-${sub.id}-${nd.toDateString()}`, `${sub.name} renews ${away===0?"today":`in ${away} day${away>1?"s":""}`} — ${fmtMoney(sub.amount)}.`, "warn");
+    }
+  });
+  state.importantDates.forEach(d=>{
+    const away=daysUntil(d.date);
+    if(away>=0 && away<=3){
+      pushAlert(`date-${d.id}-${d.date}`, `${d.label} is ${away===0?"today":`in ${away} day${away>1?"s":""}`}.`, away<=1?"over":"warn");
+    }
+  });
+  state.assignments.forEach(a=>{
+    if(a.done) return;
+    const away=daysUntil(a.dueDate);
+    if(away>=0 && away<=2){
+      pushAlert(`assign-${a.id}-${a.dueDate}`, `${a.title} is due ${away===0?"today":`in ${away} day${away>1?"s":""}`}.`, away===0?"over":"warn");
+    }
+  });
+  render();
+}
+
+/* ============================ Blue Bonnet context ========================= */
+function buildBlueBonnetContext(){
+  const now=new Date(), dayIdx=now.getDay();
+  const todays=state.classes.filter(c=>c.days.includes(dayIdx)).sort((a,b)=>parseTime(a.start)-parseTime(b.start));
+  const dueSoon=state.assignments.filter(a=>!a.done && daysUntil(a.dueDate)>=0 && daysUntil(a.dueDate)<=5).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+  const todayEvents=state.events.filter(e=>e.date && new Date(e.date).toDateString()===now.toDateString());
+  const discCats=state.budgetCats.filter(c=>c.discretionary);
+  const discSpent=discCats.reduce((s,c)=>s+spentFor(c.id),0);
+  const discLimit=discCats.reduce((s,c)=>s+c.weeklyLimit,0);
+  const pace=state.semester?computeSemesterPace(state.semester, state.budgetTx):null;
+  const upcomingSubs=state.subscriptions.map(s=>({...s, away:daysUntil(nextRenewalDate(s))})).filter(s=>s.away<=7);
+  const lines=[];
+  lines.push(`Today is ${now.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}.`);
+  lines.push(`Student is ${isVerified()?"a verified":"a pending, not-yet-verified"} student at ${state.enrollment?.school||"an unspecified school"}.`);
+  lines.push(todays.length?`Today's classes: ${todays.map(c=>`${c.name} ${fmtTime(c.start)}-${fmtTime(c.end)}${c.location?` at ${c.location}`:""}`).join("; ")}.`:"No classes today.");
+  lines.push(dueSoon.length?`Assignments due soon: ${dueSoon.map(a=>`${a.title} (due in ${daysUntil(a.dueDate)}d)`).join("; ")}.`:"No assignments due in the next 5 days.");
+  lines.push(todayEvents.length?`Events today: ${todayEvents.map(e=>e.title).join(", ")}.`:"No events today.");
+  lines.push(`Discretionary spending this week: $${discSpent.toFixed(2)} of $${discLimit.toFixed(2)} budgeted.`);
+  if(pace) lines.push(`Semester funds: $${pace.remaining.toFixed(2)} left of $${state.semester.total}, about $${pace.weeklyAllowance.toFixed(2)}/week to stay on pace.`);
+  if(upcomingSubs.length) lines.push(`Subscriptions renewing soon: ${upcomingSubs.map(s=>`${s.name} in ${s.away}d ($${s.amount})`).join("; ")}.`);
+  return lines.join(" ");
+}
+async function sendBlueBonnet(){
+  const inputEl=document.getElementById("bb-input");
+  const text=(inputEl?.value||"").trim();
+  if(!text || state.bbLoading) return;
+  state.bbMessages=[...state.bbMessages, {role:"user", content:text}];
+  state.bbLoading=true; state.bbError="";
+  render();
+  if(!BLUE_BONNET_ENDPOINT){
+    state.bbMessages=[...state.bbMessages, {role:"assistant", content:"Blue Bonnet isn't wired up to a live endpoint yet. Set BLUE_BONNET_ENDPOINT near the top of this file's <script> to your actual Blue Bonnet API URL, and this chat will call it automatically."}];
+    state.bbLoading=false; render(); return;
+  }
+  try{
+    const res=await fetch(BLUE_BONNET_ENDPOINT, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ messages: state.bbMessages, context: buildBlueBonnetContext() }),
+    });
+    const data=await res.json();
+    state.bbMessages=[...state.bbMessages, {role:"assistant", content: data.reply || data.content || "Sorry, I didn't catch that."}];
+  }catch(err){
+    state.bbError="Blue Bonnet couldn't respond right now — try again in a moment.";
+  }
+  state.bbLoading=false;
+  render();
+}
+
+/* =============================== rendering ================================ */
+function el(html){ const t=document.createElement("template"); t.innerHTML=html.trim(); return t.content.firstElementChild; }
+
+function BrandMarkSVG(size){
+  return `<svg width="${size}" height="${size}" viewBox="0 0 36 36" style="flex-shrink:0">
+    <rect width="36" height="36" rx="9" fill="#3B4B6B"/>
+    <line x1="9" y1="18" x2="27" y2="18" stroke="#F4C77A" stroke-width="2"/>
+    <line x1="18" y1="9" x2="18" y2="27" stroke="#F4C77A" stroke-width="2"/>
+    <circle cx="18" cy="18" r="3" fill="#FBFBF6"/>
+  </svg>`;
+}
+function RulerBarHTML(pct, status){
+  const fillWidth=Math.min(pct,100);
+  const gradients={ok:"linear-gradient(90deg,#1F7A5C,#279470)",warn:"linear-gradient(90deg,#C77D2D,#D99447)",over:"linear-gradient(90deg,#B4432F,#C85843)"};
+  return `<div class="relative w-full h-3 rounded-full overflow-hidden" style="background:#E3E6DA;box-shadow:inset 0 1px 2px rgba(27,36,48,0.08)">
+    <div class="h-3 rounded-full transition-all duration-500 ease-out" style="width:${fillWidth}%;background:${gradients[status]};${fillWidth>3?'box-shadow:0 0 6px rgba(27,36,48,0.15)':''}"></div>
+    <div class="absolute top-0 h-3" style="left:75%;width:1px;background:rgba(27,36,48,0.3)"></div>
+    ${pct>100?`<div class="absolute -top-1 h-5 w-1.5 rounded-full" style="left:calc(100% - 3px);background:${STATUS_COLOR.over};box-shadow:0 1px 3px rgba(27,36,48,0.3)"></div>`:""}
+  </div>`;
+}
+function RadialRingHTML(pct, status, size, innerHtml){
+  const stroke=7, r=(size-stroke)/2, c=2*Math.PI*r, clamped=Math.min(pct,100);
+  return `<div class="relative flex-shrink-0" style="width:${size}px;height:${size}px">
+    <svg width="${size}" height="${size}" style="transform:rotate(-90deg)">
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#E3E6DA" stroke-width="${stroke}"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${STATUS_COLOR[status]}" stroke-width="${stroke}"
+        stroke-dasharray="${c}" stroke-dashoffset="${c-(clamped/100)*c}" stroke-linecap="round" style="transition:stroke-dashoffset .6s ease-out"/>
+    </svg>
+    <div class="absolute inset-0 flex items-center justify-center">${innerHtml}</div>
+  </div>`;
+}
+function cardStyle(extra){ return `background:#FBFBF6;border:1px solid #D8DBCF;box-shadow:0 1px 2px rgba(27,36,48,0.04),0 4px 14px -4px rgba(27,36,48,0.08);${extra||""}`; }
+function heroCardStyle(){ return `background:#FBFBF6;border:1px solid #D8DBCF;border-top:3px dashed #C3C7B8;box-shadow:0 2px 4px rgba(27,36,48,0.05),0 10px 24px -8px rgba(59,75,107,0.18);`; }
+function primaryBtn(extra){ return `background:#3B4B6B;color:white;box-shadow:0 2px 6px -1px rgba(59,75,107,0.4);${extra||""}`; }
+
+function ModalWrap(title, bodyHtml, opts){
+  opts=opts||{};
+  return `<div class="fixed inset-0 flex items-end sm:items-center justify-center z-50 px-0 sm:px-5" style="background:rgba(27,36,48,0.5);backdrop-filter:blur(2px)" data-action="close-modal">
+    <div class="modal-up w-full ${opts.wide?'sm:max-w-md':'sm:max-w-sm'} max-h-[85vh] overflow-y-auto rounded-t-xl sm:rounded-xl p-5" style="background:#FBFBF6;box-shadow:0 -8px 30px rgba(27,36,48,.15),0 20px 40px -12px rgba(27,36,48,.25)" data-stop="1">
+      <div class="w-10 h-1 rounded-full mx-auto mb-4 sm:hidden" style="background:#D8DBCF"></div>
+      <div class="flex items-center justify-between mb-4">
+        <h3 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg">${esc(title)}</h3>
+        <button data-action="close-modal"><i data-lucide="x" style="width:18px;height:18px;color:#5B6470"></i></button>
+      </div>
+      ${bodyHtml}
+    </div>
+  </div>`;
+}
+function fieldHtml(label, inputHtml){
+  return `<div class="mb-3"><label class="text-xs uppercase tracking-wide block mb-1" style="color:#5B6470">${esc(label)}</label>${inputHtml}</div>`;
+}
+
+/* --------------------------- Enrollment Gate --------------------------- */
+function EnrollmentGateHTML(){
+  const d = state.draftGate || {school: SCHOOL_PRESETS[0].name};
+  return `<div style="background:linear-gradient(180deg,#F1F3E9 0%,#E4E7DA 100%);min-height:100vh" class="flex items-center justify-center px-5">
+    <div class="fade-in w-full max-w-sm rounded-xl p-6" style="background:#FBFBF6;border:1px solid #D8DBCF;box-shadow:0 20px 50px -12px rgba(27,36,48,.2)">
+      <div class="flex flex-col items-center mb-5">
+        ${BrandMarkSVG(44)}
+        <h1 style="font-family:'Fraunces',serif;font-weight:600" class="text-xl mt-2">Campus</h1>
+        <p class="text-xs text-center mt-1" style="color:#5B6470">Sign in with your student email to continue</p>
+      </div>
+      ${fieldHtml("School", `<select id="gate-school" class="px-3 py-2 rounded-xl" style="${inputStyle}">
+        ${SCHOOL_PRESETS.map(s=>`<option value="${esc(s.name)}">${esc(s.name)}</option>`).join("")}
+        <option value="Other">Other school</option>
+      </select>`)}
+      ${fieldHtml("Student email", `<input id="gate-email" type="email" placeholder="you@student.dcccd.edu" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+      <div id="gate-error" class="text-xs mb-3" style="color:#B4432F"></div>
+      <button data-action="gate-submit" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}">
+        <i data-lucide="shield-check" style="width:15px;height:15px"></i> Continue
+      </button>
+      <div class="flex items-center gap-2 my-4">
+        <div class="flex-1 h-px" style="background:#D8DBCF"></div>
+        <span class="text-[10px] uppercase tracking-wide" style="color:#9098A0">or</span>
+        <div class="flex-1 h-px" style="background:#D8DBCF"></div>
+      </div>
+      ${fieldHtml("Your name (optional)", `<input id="gate-name" placeholder="For your ID card" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+      <button data-action="gate-pending" class="w-full py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5" style="border:1px solid #D8DBCF;color:#3B4B6B">
+        Continue — not enrolled yet
+      </button>
+      <p class="text-xs mt-2 leading-relaxed" style="color:#9098A0">Not registered yet, or don't have your student email? You can still use Campus. Your ID will show as "Pending" instead of "Verified" until you sign in with a matching student email later.</p>
+    </div>
+  </div>`;
+}
+function gateSubmit(){
+  const school=document.getElementById("gate-school").value;
+  const email=document.getElementById("gate-email").value;
+  const errEl=document.getElementById("gate-error");
+  if(!email.includes("@")){ errEl.textContent="Enter a valid email."; return; }
+  if(!isAllowedEmail(email, school)){
+    const preset=SCHOOL_PRESETS.find(s=>s.name.toLowerCase()===school.trim().toLowerCase());
+    errEl.textContent = preset? `That doesn't match ${preset.name}'s student email domain.` : "Use your school email (usually ending in .edu).";
+    return;
+  }
+  state.enrollment={ email:email.trim(), school:school.trim(), verifiedAt:new Date().toISOString(), verified:true };
+  persist("campus-enrollment", state.enrollment);
+  if(!state.profile.school){ state.profile.school=school.trim(); persist("campus-profile", state.profile); }
+  render();
+}
+function gatePending(){
+  const school=document.getElementById("gate-school").value;
+  const name=document.getElementById("gate-name").value;
+  const email=document.getElementById("gate-email").value;
+  const errEl=document.getElementById("gate-error");
+  if(!school.trim()){ errEl.textContent="Enter your school."; return; }
+  state.enrollment={ email:email.trim(), name:name.trim(), school:school.trim(), verifiedAt:new Date().toISOString(), verified:false };
+  persist("campus-enrollment", state.enrollment);
+  if(!state.profile.school){ state.profile.school=school.trim(); persist("campus-profile", state.profile); }
+  render();
+}
+
+/* --------------------------- Locked Feature --------------------------- */
+function LockedFeatureHTML(what){
+  return `<div class="rounded-xl p-6 flex flex-col items-center text-center" style="${cardStyle()}">
+    <div class="w-11 h-11 rounded-full flex items-center justify-center mb-3" style="background:#E3E6DA">
+      <i data-lucide="shield-check" style="width:20px;height:20px;color:#3B4B6B"></i>
+    </div>
+    <p style="font-family:'Fraunces',serif;font-weight:600" class="text-base mb-1">Verify to unlock ${esc(what)}</p>
+    <p class="text-xs mb-4" style="color:#5B6470">Map, events, and shared class checklists are for verified ${esc(state.enrollment.school)} students. Budget and your personal schedule stay open either way.</p>
+    <input id="lock-email" type="email" placeholder="you@student.dcccd.edu" class="px-3 py-2 rounded-xl mb-2" style="${inputStyle}"/>
+    <div id="lock-error" class="text-xs mb-2" style="color:#B4432F"></div>
+    <button data-action="lock-verify" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}">
+      <i data-lucide="shield-check" style="width:15px;height:15px"></i> Verify with student email
+    </button>
+  </div>`;
+}
+function lockVerify(){
+  const email=document.getElementById("lock-email").value;
+  const errEl=document.getElementById("lock-error");
+  if(!email.includes("@")){ errEl.textContent="Enter a valid email."; return; }
+  if(!tryVerify(email)){ errEl.textContent=`That doesn't match ${state.enrollment.school}'s student email domain.`; return; }
+  render();
+}
+
+/* ------------------------------- Header -------------------------------- */
+function HeaderHTML(){
+  return `<div class="sticky top-0 z-30" style="background:rgba(241,243,233,0.85);backdrop-filter:blur(10px);border-bottom:1px solid #D8DBCF;box-shadow:0 1px 0 rgba(255,255,255,.6),0 4px 16px rgba(27,36,48,.05)">
+    <div class="max-w-md mx-auto px-5 pt-5 pb-3 flex items-start justify-between">
+      <div class="flex items-center gap-2.5">
+        ${BrandMarkSVG(34)}
+        <div>
+          <h1 style="font-family:'Fraunces',serif;font-weight:600" class="text-2xl tracking-tight leading-none">Campus</h1>
+          <p class="text-xs mt-1" style="color:#5B6470">Money, classes, and campus life in one place</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button data-action="open-id" class="relative p-2 rounded-full" style="${cardStyle()}"><i data-lucide="credit-card" style="width:18px;height:18px"></i></button>
+        <button data-action="open-feed" class="relative p-2 rounded-full" style="${cardStyle()}">
+          <i data-lucide="bell" style="width:18px;height:18px"></i>
+          ${state.alerts.length>0?`<span class="absolute -top-1 -right-1 rounded-full text-[10px] flex items-center justify-center" style="background:#B4432F;color:white;width:16px;height:16px;box-shadow:0 1px 3px rgba(180,67,47,.5)">${state.alerts.length>9?"9+":state.alerts.length}</span>`:""}
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+function BannersHTML(){
+  const active=state.alerts.filter(a=>!state.dismissed.includes(a.id)).slice(0,3);
+  if(!active.length) return "";
+  return `<div class="max-w-md mx-auto px-5 pt-2 space-y-2">
+    ${active.map(a=>`<div class="flex items-start gap-2 p-3 rounded-xl" style="background:${LEVEL_COLOR[a.level]}1A;border-left:3px solid ${LEVEL_COLOR[a.level]}">
+      <i data-lucide="${LEVEL_ICON[a.level]||'bell'}" style="width:16px;height:16px;color:${LEVEL_COLOR[a.level]};margin-top:2px;flex-shrink:0"></i>
+      <p class="text-sm flex-1">${esc(a.message)}</p>
+      <button data-action="dismiss-banner" data-id="${a.id}"><i data-lucide="x" style="width:15px;height:15px;color:#5B6470"></i></button>
+    </div>`).join("")}
+  </div>`;
+}
+
+/* ------------------------------ Bottom Nav ------------------------------ */
+const TABS=[
+  {id:"today",label:"Today",icon:"home"},
+  {id:"schedule",label:"Schedule",icon:"calendar-days"},
+  {id:"budget",label:"Budget",icon:"wallet"},
+  {id:"map",label:"Map",icon:"map-pin"},
+  {id:"events",label:"Events",icon:"party-popper"},
+];
+function BottomNavHTML(){
+  return `<div class="fixed bottom-0 left-0 right-0 z-40" style="background:rgba(251,251,246,.9);backdrop-filter:blur(10px);border-top:1px solid #D8DBCF;box-shadow:0 -4px 20px rgba(27,36,48,.08)">
+    <div class="max-w-md mx-auto flex">
+      ${TABS.map(t=>{
+        const active=state.tab===t.id;
+        const locked=!isVerified() && (t.id==="map"||t.id==="events");
+        return `<button data-action="set-tab" data-tab="${t.id}" class="relative flex-1 flex flex-col items-center gap-1 py-2.5">
+          ${active?`<div class="absolute top-0 rounded-b-full" style="width:20px;height:2.5px;background:#F4C77A"></div>`:""}
+          <div class="relative">
+            <i data-lucide="${t.icon}" style="width:19px;height:19px;color:${active?'#3B4B6B':'#9098A0'}"></i>
+            ${locked?`<div class="absolute -bottom-0.5 -right-1 rounded-full flex items-center justify-center" style="width:10px;height:10px;background:#FBFBF6"><i data-lucide="shield-check" style="width:8px;height:8px;color:#C77D2D"></i></div>`:""}
+          </div>
+          <span class="text-[10px]" style="color:${active?'#3B4B6B':'#9098A0'};font-weight:${active?600:400}">${t.label}</span>
+        </button>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+/* ------------------------------ Today Tab -------------------------------- */
+function EnrollmentChecklistCardHTML(){
+  const items=state.enrollChecklist;
+  const done=items.filter(i=>i.done).length;
+  const pct=items.length>0?(done/items.length)*100:0;
+  const open = state.enrollChecklistOpen===null ? !isVerified() : state.enrollChecklistOpen;
+  return `<div class="rounded-xl p-4" style="${cardStyle()}">
+    <button data-action="toggle-enroll-checklist" class="w-full flex items-center justify-between">
+      <span class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470">
+        <i data-lucide="list-checks" style="width:13px;height:13px"></i> ${isVerified()?"Enrollment checklist":"Getting enrolled"}
+      </span>
+      <i data-lucide="${open?'chevron-up':'chevron-down'}" style="width:14px;height:14px;color:#5B6470"></i>
+    </button>
+    ${open?`<div class="mt-3">
+      ${!isVerified()?`<p class="text-xs mb-3" style="color:#5B6470">General steps for getting into an accredited school — check off what you've done. Your specific school may have a few extra requirements, so confirm anything unclear with their admissions office.</p>`:""}
+      <div class="mb-2">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-xs" style="color:#5B6470">${done} of ${items.length} done</span>
+          <span class="text-xs" style="font-family:'IBM Plex Mono',monospace;color:#5B6470">${Math.round(pct)}%</span>
+        </div>
+        ${RulerBarHTML(pct, pct>=100?"ok":pct>=50?"warn":"over")}
+      </div>
+      <div class="space-y-1.5 mt-3">
+        ${items.map(it=>`<div class="flex items-center gap-2 text-sm">
+          <button data-action="toggle-enroll-item" data-id="${it.id}" class="flex-shrink-0">
+            <div class="w-4 h-4 rounded-md flex items-center justify-center" style="border:1px solid #3B4B6B;background:${it.done?'#3B4B6B':'white'}">
+              ${it.done?'<i data-lucide="check" style="width:11px;height:11px;color:white"></i>':''}
+            </div>
+          </button>
+          <span class="flex-1" style="text-decoration:${it.done?'line-through':'none'};color:${it.done?'#9098A0':'#1B2430'}">${esc(it.text)}</span>
+          <button data-action="delete-enroll-item" data-id="${it.id}"><i data-lucide="x" style="width:12px;height:12px;color:#B0B4A6"></i></button>
+        </div>`).join("")}
+      </div>
+      <div class="flex gap-1.5 mt-2.5">
+        <input id="enroll-item-input" placeholder="Add your own step" class="flex-1 px-2.5 py-1.5 rounded-xl text-sm" style="${inputStyle}" onkeydown="if(event.key==='Enter') window.__addEnrollItem()"/>
+        <button data-action="add-enroll-item" class="px-2.5 rounded-xl" style="${primaryBtn()}"><i data-lucide="plus" style="width:14px;height:14px"></i></button>
+      </div>
+    </div>`:""}
+  </div>`;
+}
+function TodayTabHTML(){
+  const now=new Date(), dayIdx=now.getDay(), nowMin=now.getHours()*60+now.getMinutes();
+  const todays=state.classes.filter(c=>c.days.includes(dayIdx)).sort((a,b)=>parseTime(a.start)-parseTime(b.start));
+  const next=todays.find(c=>parseTime(c.end)>nowMin);
+  const todayEvents=state.events.filter(e=>e.date && new Date(e.date).toDateString()===now.toDateString());
+  const dueSoon=state.assignments.filter(a=>!a.done && daysUntil(a.dueDate)>=0 && daysUntil(a.dueDate)<=3).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+  const commitmentCount=todays.length+todayEvents.length;
+  const heavyDay=commitmentCount>=4;
+  const discCats=state.budgetCats.filter(c=>c.discretionary);
+  const discSpent=discCats.reduce((s,c)=>s+spentFor(c.id),0);
+  const discLimit=discCats.reduce((s,c)=>s+c.weeklyLimit,0);
+  const discPct=discLimit>0?(discSpent/discLimit)*100:0;
+  const upcomingSubs=state.subscriptions.map(s=>({...s, next:nextRenewalDate(s), away:daysUntil(nextRenewalDate(s))})).filter(s=>s.away<=7).sort((a,b)=>a.away-b.away);
+  const pace=state.semester?computeSemesterPace(state.semester, state.budgetTx):null;
+
+  return `<div class="space-y-4">
+    ${EnrollmentChecklistCardHTML()}
+    ${pace?SemesterPaceCardHTML(pace, state.semester.total):""}
+    ${heavyDay?`<div class="flex items-center gap-2 p-3 rounded-xl text-sm" style="background:rgba(199,125,45,.1);border-left:3px solid #C77D2D">
+      <i data-lucide="alert-triangle" style="width:15px;height:15px;color:#C77D2D;flex-shrink:0"></i>
+      <span>Heavy day — ${commitmentCount} things on the calendar. Worth protecting a real break somewhere.</span>
+    </div>`:""}
+    <div class="rounded-xl p-4" style="${heroCardStyle()}">
+      <p class="text-xs uppercase tracking-wide mb-1.5" style="color:#5B6470">Up next</p>
+      ${next?`<p style="font-family:'Fraunces',serif;font-weight:600" class="text-xl">${esc(next.name)}</p>
+        <p class="text-sm mt-0.5" style="color:#5B6470">${fmtTime(next.start)} – ${fmtTime(next.end)}${next.location?` · ${esc(next.location)}`:""}</p>`
+        :`<p class="text-sm" style="color:#5B6470">No more classes today.</p>`}
+    </div>
+    ${todayEvents.length?`<div class="rounded-xl p-4" style="${cardStyle()}">
+      <p class="text-xs uppercase tracking-wide mb-2" style="color:#5B6470">Today's events</p>
+      <div class="space-y-1.5">${todayEvents.map(e=>`<div class="flex justify-between text-sm"><span>${esc(e.title)}</span><span style="color:#5B6470">${e.time?fmtTime(e.time):"All day"}</span></div>`).join("")}</div>
+    </div>`:""}
+    ${dueSoon.length?`<div class="rounded-xl p-4" style="${cardStyle()}">
+      <p class="text-xs uppercase tracking-wide mb-2 flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="list-checks" style="width:13px;height:13px"></i> Due soon</p>
+      <div class="space-y-1.5">${dueSoon.map(a=>{const away=daysUntil(a.dueDate); return `<div class="flex justify-between text-sm"><span>${esc(a.title)}</span><span style="color:${away<=1?'#B4432F':'#C77D2D'}">${away===0?"Today":away+"d"}</span></div>`;}).join("")}</div>
+    </div>`:""}
+    ${upcomingSubs.length?`<div class="rounded-xl p-4" style="${cardStyle()}">
+      <p class="text-xs uppercase tracking-wide mb-2" style="color:#5B6470">Renewing soon</p>
+      <div class="space-y-1.5">${upcomingSubs.map(s=>`<div class="flex justify-between text-sm"><span>${esc(s.name)}</span><span style="color:${s.away<=3?'#C77D2D':'#5B6470'}">${s.away===0?"Today":s.away+"d"} · ${fmtMoney(s.amount)}</span></div>`).join("")}</div>
+    </div>`:""}
+    <div class="rounded-xl p-4 flex items-center gap-4" style="${cardStyle()}">
+      ${RadialRingHTML(discPct, statusFor(discPct), 72, `<span style="font-family:'IBM Plex Mono',monospace;font-weight:600" class="text-xs">${discLimit>0?Math.round(discPct):0}%</span>`)}
+      <div class="flex-1 min-w-0">
+        <p class="text-xs uppercase tracking-wide mb-1.5" style="color:#5B6470">Discretionary spend this week</p>
+        <div class="flex items-baseline gap-1.5">
+          <span style="font-family:'IBM Plex Mono',monospace;font-weight:600" class="text-2xl">${fmtMoney(discSpent)}</span>
+          <span style="color:#5B6470;font-family:'IBM Plex Mono',monospace" class="text-sm">/ ${fmtMoney(discLimit)}</span>
+        </div>
+      </div>
+    </div>
+    ${CampusSafetyCardHTML()}
+    ${CampusSupportCardHTML()}
+  </div>`;
+}
+function SemesterPaceCardHTML(pace, total){
+  const pct=Math.min(100,Math.max(0,((total-pace.remaining)/total)*100));
+  const diff=Math.abs(pace.remaining-pace.expectedRemaining);
+  const ahead=pace.remaining>=pace.expectedRemaining;
+  return `<div class="rounded-xl p-4" style="${cardStyle()}">
+    <p class="text-xs uppercase tracking-wide mb-1.5" style="color:#5B6470">Semester funds</p>
+    <div class="flex items-baseline gap-1.5 mb-2">
+      <span style="font-family:'IBM Plex Mono',monospace;font-weight:600" class="text-2xl">${fmtMoney(pace.remaining)}</span>
+      <span style="color:#5B6470;font-family:'IBM Plex Mono',monospace" class="text-sm">left of ${fmtMoney(total)}</span>
+    </div>
+    ${RulerBarHTML(pct, pace.status)}
+    <p class="text-xs mt-2" style="color:${pace.status==='ok'?'#1F7A5C':pace.status==='warn'?'#C77D2D':'#B4432F'}">
+      ${ahead?`${fmtMoney(diff)} ahead of an even pace`:`${fmtMoney(diff)} behind an even pace`} · about ${fmtMoney(pace.weeklyAllowance)}/week to stay on track
+    </p>
+  </div>`;
+}
+function CampusSafetyCardHTML(){
+  const info=state.safetyInfo;
+  return `<div class="rounded-xl p-4" style="${cardStyle()}">
+    <button data-action="toggle-safety" class="w-full flex items-center justify-between">
+      <span class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="shield-alert" style="width:13px;height:13px"></i> Campus safety</span>
+      <i data-lucide="${state.safetyOpen?'chevron-up':'chevron-down'}" style="width:14px;height:14px;color:#5B6470"></i>
+    </button>
+    ${state.safetyOpen?`<div class="mt-3 space-y-2.5 text-sm">
+      <p class="flex items-center gap-1.5"><i data-lucide="phone" style="width:13px;height:13px;color:#B4432F"></i> Emergency — call 911</p>
+      ${state.safetyEditing?`
+        <input id="safety-num" value="${esc(info.safetyNumber)}" placeholder="Campus safety / police non-emergency number" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>
+        <input id="escort-num" value="${esc(info.escortNumber)}" placeholder="Safety escort number (if your campus has one)" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>
+        <button data-action="save-safety" class="w-full py-2 rounded-xl text-sm" style="${primaryBtn()}">Save</button>
+      `:`
+        ${info.safetyNumber?`<p class="flex items-center gap-1.5"><i data-lucide="phone" style="width:13px;height:13px;color:#3B4B6B"></i> Campus safety — ${esc(info.safetyNumber)}</p>`:""}
+        ${info.escortNumber?`<p class="flex items-center gap-1.5"><i data-lucide="footprints" style="width:13px;height:13px;color:#3B4B6B"></i> Safety escort — ${esc(info.escortNumber)}</p>`:""}
+        ${(!info.safetyNumber && !info.escortNumber)?`<button data-action="edit-safety" class="text-xs" style="color:#3B4B6B">+ Add your campus safety numbers</button>`:""}
+        <a href="https://www.nsopw.gov" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5" style="color:#3B4B6B"><i data-lucide="external-link" style="width:13px;height:13px"></i> Search the official public sex offender registry</a>
+        ${(info.safetyNumber||info.escortNumber)?`<button data-action="edit-safety" class="text-xs" style="color:#3B4B6B">Edit numbers</button>`:""}
+      `}
+    </div>`:""}
+  </div>`;
+}
+function CampusSupportCardHTML(){
+  const info=state.supportInfo;
+  return `<div class="rounded-xl p-4" style="${cardStyle()}">
+    <button data-action="toggle-support" class="w-full flex items-center justify-between">
+      <span class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="life-buoy" style="width:13px;height:13px"></i> Campus support</span>
+      <i data-lucide="${state.supportOpen?'chevron-up':'chevron-down'}" style="width:14px;height:14px;color:#5B6470"></i>
+    </button>
+    ${state.supportOpen?`<div class="mt-3 space-y-2 text-sm">
+      ${state.supportEditing?`
+        <input id="support-center" value="${esc(info.center)}" placeholder="Your campus counseling center" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>
+        <input id="support-number" value="${esc(info.number)}" placeholder="Their phone number" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>
+        <button data-action="save-support" class="w-full py-2 rounded-xl text-sm" style="${primaryBtn()}">Save</button>
+      `:`
+        ${info.center?`<p>${esc(info.center)}${info.number?` · ${esc(info.number)}`:""}</p>`:`<button data-action="edit-support" class="text-xs" style="color:#3B4B6B">+ Add your campus counseling center</button>`}
+        <p style="color:#5B6470">988 Suicide &amp; Crisis Lifeline — call or text 988, any time.</p>
+        ${info.center?`<button data-action="edit-support" class="text-xs" style="color:#3B4B6B">Edit</button>`:""}
+      `}
+    </div>`:""}
+  </div>`;
+}
+
+/* ----------------------------- Schedule Tab ------------------------------ */
+function ScheduleTabHTML(){
+  const dayIdx=state.scheduleDay;
+  const dayClasses=state.classes.filter(c=>c.days.includes(dayIdx)).sort((a,b)=>parseTime(a.start)-parseTime(b.start));
+  const sortedDates=[...state.importantDates].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const sortedAssignments=[...state.assignments].sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+  const school=state.enrollment.school;
+
+  return `<div>
+    <div class="rounded-xl p-3.5 mb-4" style="${cardStyle()}">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Student checklist</p>
+      </div>
+      ${isVerified()?`
+        <p class="text-[10px] mb-2" style="color:#9098A0">Shared list for ${esc(school)} — note: on this static build this is saved only on this device/browser, not synced with classmates (that needs a real backend).</p>
+        ${ChecklistPanelHTML(schoolChecklistKey(school), true)}
+      `:`<p class="text-xs" style="color:#5B6470">Move-in steps, first-week to-dos, anything worth flagging for everyone at ${esc(school)||"your school"}. Verify your student email to see and add items.</p>`}
+    </div>
+
+    <div class="rounded-xl p-3.5 mb-4" style="${cardStyle()}">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="flag" style="width:12px;height:12px"></i> Important dates</p>
+        <button data-action="open-modal" data-modal="add-date" class="text-xs px-2 py-1 rounded-xl flex items-center gap-1" style="border:1px solid #3B4B6B;color:#3B4B6B"><i data-lucide="plus" style="width:11px;height:11px"></i> Add</button>
+      </div>
+      ${sortedDates.length===0?`<p class="text-xs" style="color:#5B6470">Track drop deadlines, last day of classes, finals week.</p>`:""}
+      <div class="space-y-1">
+        ${sortedDates.map(d=>{const away=daysUntil(d.date); return `<div class="flex items-center justify-between text-sm">
+          <span>${esc(d.label)}</span>
+          <div class="flex items-center gap-2">
+            <span style="color:${away<=3?'#C77D2D':'#5B6470'}" class="text-xs">${away===0?"Today":away>0?`in ${away}d`:"past"}</span>
+            <button data-action="delete-date" data-id="${d.id}"><i data-lucide="x" style="width:12px;height:12px;color:#B0B4A6"></i></button>
+          </div>
+        </div>`;}).join("")}
+      </div>
+    </div>
+
+    <div class="rounded-xl p-3.5 mb-4" style="${cardStyle()}">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Assignments</p>
+        <button data-action="open-modal" data-modal="add-assignment" class="text-xs px-2 py-1 rounded-xl flex items-center gap-1" style="border:1px solid #3B4B6B;color:#3B4B6B"><i data-lucide="plus" style="width:11px;height:11px"></i> Add</button>
+      </div>
+      ${sortedAssignments.length===0?`<p class="text-xs" style="color:#5B6470">Track what's due so nothing sneaks up on you.</p>`:""}
+      <div class="space-y-1.5">
+        ${sortedAssignments.map(a=>{const away=daysUntil(a.dueDate); return `<div class="flex items-center gap-2 text-sm">
+          <button data-action="toggle-assignment" data-id="${a.id}" class="flex-shrink-0">
+            <div class="w-4 h-4 rounded-sm flex items-center justify-center" style="border:1px solid #3B4B6B;background:${a.done?'#3B4B6B':'white'}">${a.done?'<i data-lucide="check" style="width:11px;height:11px;color:white"></i>':''}</div>
+          </button>
+          <span class="flex-1" style="text-decoration:${a.done?'line-through':'none'};color:${a.done?'#9098A0':'#1B2430'}">${esc(a.title)}</span>
+          <span class="text-xs" style="color:${!a.done && away<=1?'#B4432F':'#5B6470'}">${away===0?"Today":away>0?away+"d":"past due"}</span>
+          <button data-action="delete-assignment" data-id="${a.id}"><i data-lucide="x" style="width:12px;height:12px;color:#B0B4A6"></i></button>
+        </div>`;}).join("")}
+      </div>
+    </div>
+
+    <div class="flex gap-1.5 mb-4 overflow-x-auto pb-1">
+      ${[1,2,3,4,5,6,0].map(d=>`<button data-action="set-schedule-day" data-day="${d}" class="px-3.5 py-1.5 rounded-full text-xs font-medium flex-shrink-0" style="background:${dayIdx===d?'#3B4B6B':'#FBFBF6'};color:${dayIdx===d?'white':'#1B2430'};border:1px solid #D8DBCF;${dayIdx===d?'box-shadow:0 2px 6px -1px rgba(59,75,107,.4)':''}">${DAY_LABELS[d]}</button>`).join("")}
+    </div>
+
+    <div class="flex items-center justify-between mb-3">
+      <h2 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg">Classes</h2>
+      <button data-action="open-modal" data-modal="add-class" class="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-xl" style="${primaryBtn()}"><i data-lucide="plus" style="width:14px;height:14px"></i> Class</button>
+    </div>
+    ${dayClasses.length===0?`<p class="text-sm" style="color:#5B6470">No classes scheduled for ${DAY_LABELS[dayIdx]}.</p>`:""}
+    <div class="space-y-2">
+      ${dayClasses.map((c,i)=>{
+        const next=dayClasses[i+1];
+        const pinA=state.pins.find(p=>p.id===c.pinId), pinB=next?state.pins.find(p=>p.id===next.pinId):null;
+        const wm=next?walkMinutes(pinA,pinB):null;
+        const gap=next?parseTime(next.start)-parseTime(c.end):null;
+        const tight=wm!==null && gap!==null && gap<wm+5;
+        const openCk=state.openChecklist===c.id;
+        return `<div>
+          <div class="rounded-xl p-3.5" style="background:#FBFBF6;border:1px solid #D8DBCF;border-left:4px solid ${c.color};box-shadow:0 1px 2px rgba(27,36,48,.04),0 4px 14px -4px rgba(27,36,48,.08)">
+            <div class="flex items-start gap-3">
+              <div class="flex-1">
+                <p style="font-family:'Fraunces',serif;font-weight:600" class="text-base">${esc(c.name)}</p>
+                <p class="text-sm" style="color:#5B6470">${fmtTime(c.start)} – ${fmtTime(c.end)}${c.location?` · ${esc(c.location)}`:""}</p>
+              </div>
+              <button data-action="delete-class" data-id="${c.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:#B0B4A6"></i></button>
+            </div>
+            ${isVerified()?`
+              <button data-action="toggle-class-checklist" data-id="${c.id}" class="flex items-center gap-1 text-xs mt-2" style="color:#3B4B6B">
+                <i data-lucide="list-checks" style="width:12px;height:12px"></i> Class checklist <i data-lucide="${openCk?'chevron-up':'chevron-down'}" style="width:12px;height:12px"></i>
+              </button>
+              ${openCk?ChecklistPanelHTML(classChecklistKey(c.name), false):""}
+            `:`<p class="flex items-center gap-1 text-xs mt-2" style="color:#9098A0"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Class checklist — verify enrollment to unlock</p>`}
+          </div>
+          ${next && wm!==null?`<div class="flex items-center gap-1.5 pl-2 text-xs" style="color:${tight?'#C77D2D':'#5B6470'}"><i data-lucide="footprints" style="width:12px;height:12px"></i> ${wm} min walk to next class ${tight?"— tight":""}</div>`:""}
+        </div>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+function ChecklistPanelHTML(storageKey, noBorder){
+  const items=LS.get(storageKey, []);
+  return `<div class="${noBorder?'':'mt-2.5 pt-2.5'}" style="${noBorder?'':'border-top:1px dashed #D8DBCF'}">
+    ${items.length===0?`<p class="text-xs mb-2" style="color:#5B6470">No items yet — add what people need to know or bring.</p>`:""}
+    <div class="space-y-1.5 mb-2">
+      ${items.map(it=>`<div class="flex items-center gap-2 text-sm">
+        <button data-action="toggle-checklist-item" data-key="${esc(storageKey)}" data-id="${it.id}" class="flex-shrink-0">
+          <div class="w-4 h-4 rounded-sm flex items-center justify-center" style="border:1px solid #3B4B6B;background:${it.done?'#3B4B6B':'white'}">${it.done?'<i data-lucide="check" style="width:11px;height:11px;color:white"></i>':''}</div>
+        </button>
+        <span class="flex-1" style="text-decoration:${it.done?'line-through':'none'};color:${it.done?'#9098A0':'#1B2430'}">${esc(it.text)}</span>
+        <button data-action="delete-checklist-item" data-key="${esc(storageKey)}" data-id="${it.id}"><i data-lucide="x" style="width:12px;height:12px;color:#B0B4A6"></i></button>
+      </div>`).join("")}
+    </div>
+    <div class="flex gap-1.5">
+      <input id="ck-input-${btoa(storageKey).replace(/=/g,'')}" placeholder="e.g. Bring calculator" class="flex-1 px-2.5 py-1.5 rounded-xl text-sm" style="${inputStyle}" onkeydown="if(event.key==='Enter') window.__addChecklistItem('${esc(storageKey)}')"/>
+      <button data-action="add-checklist-item" data-key="${esc(storageKey)}" class="px-2.5 rounded-xl" style="${primaryBtn()}"><i data-lucide="plus" style="width:14px;height:14px"></i></button>
+    </div>
+  </div>`;
+}
+
+/* ------------------------------- Budget Tab ------------------------------ */
+function BudgetTabHTML(){
+  const pace=state.semester?computeSemesterPace(state.semester, state.budgetTx):null;
+  const totalMonthlySubs=state.subscriptions.reduce((s,sub)=>s+monthlyCost(sub),0);
+  const balances={};
+  state.splits.filter(s=>!s.settled).forEach(s=>{ balances[s.person]=(balances[s.person]||0)+(s.iOwe?-s.amount:s.amount); });
+
+  return `<div>
+    <div class="rounded-xl p-4 mb-4" style="${heroCardStyle()}">
+      <div class="flex items-center justify-between mb-1">
+        <p class="text-xs uppercase tracking-wide" style="color:#5B6470">Semester funds</p>
+        <button data-action="open-modal" data-modal="semester-setup" class="text-xs" style="color:#3B4B6B"><i data-lucide="settings" style="width:13px;height:13px"></i></button>
+      </div>
+      ${pace?`
+        <div class="flex items-baseline gap-1.5 mb-2">
+          <span style="font-family:'IBM Plex Mono',monospace;font-weight:600" class="text-xl">${fmtMoney(pace.remaining)}</span>
+          <span style="color:#5B6470;font-family:'IBM Plex Mono',monospace" class="text-sm">left of ${fmtMoney(state.semester.total)}</span>
+        </div>
+        ${RulerBarHTML(Math.min(100,Math.max(0,((state.semester.total-pace.remaining)/state.semester.total)*100)), pace.status)}
+        <p class="text-xs mt-2" style="color:#5B6470">~${fmtMoney(pace.weeklyAllowance)}/week keeps you on pace to the end of the semester.</p>
+      `:`<p class="text-sm" style="color:#5B6470">Got a lump sum — financial aid, a parent transfer? Set it up once and see a weekly pace instead of one big scary number.</p>`}
+    </div>
+
+    <div class="flex items-center justify-between mb-3">
+      <h2 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg">Weekly categories</h2>
+      <button data-action="open-modal" data-modal="add-category" class="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-xl" style="${primaryBtn()}"><i data-lucide="plus" style="width:14px;height:14px"></i> Category</button>
+    </div>
+    <div class="space-y-3">
+      ${state.budgetCats.map(cat=>{
+        const spent=spentFor(cat.id), pct=(spent/cat.weeklyLimit)*100, status=statusFor(pct);
+        const isExp=state.expandedBudgetCat===cat.id;
+        const catTx=state.budgetTx.filter(t=>t.categoryId===cat.id).sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,8);
+        return `<div class="rounded-xl p-4" style="${cardStyle()}">
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-2">
+              <span style="font-family:'Fraunces',serif;font-weight:600">${esc(cat.name)}</span>
+              ${cat.discretionary?`<span class="text-[10px] px-1.5 py-0.5 rounded-full uppercase" style="background:#E3E6DA;color:#5B6470">Discretionary</span>`:""}
+            </div>
+            <button data-action="delete-category" data-id="${cat.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:#B0B4A6"></i></button>
+          </div>
+          <div class="flex items-baseline gap-1.5 mb-2">
+            <span style="font-family:'IBM Plex Mono',monospace;font-weight:600" class="text-lg">${fmtMoney(spent)}</span>
+            <span style="color:#5B6470;font-family:'IBM Plex Mono',monospace" class="text-xs">of ${fmtMoney(cat.weeklyLimit)}</span>
+          </div>
+          ${RulerBarHTML(pct,status)}
+          <div class="flex items-center justify-between mt-2">
+            <button data-action="toggle-budget-cat" data-id="${cat.id}" class="flex items-center gap-1 text-xs" style="color:#5B6470">${catTx.length} recent <i data-lucide="${isExp?'chevron-up':'chevron-down'}" style="width:13px;height:13px"></i></button>
+            <button data-action="open-modal" data-modal="add-tx" data-catid="${cat.id}" class="flex items-center gap-1 text-xs px-2 py-1 rounded-xl" style="border:1px solid #3B4B6B;color:#3B4B6B"><i data-lucide="plus" style="width:12px;height:12px"></i> Add expense</button>
+          </div>
+          ${isExp?`<div class="mt-3 pt-3 space-y-1.5" style="border-top:1px dashed #D8DBCF">
+            ${catTx.length===0?`<p class="text-xs" style="color:#5B6470">No expenses yet.</p>`:""}
+            ${catTx.map(t=>`<div class="flex items-center justify-between text-sm">
+              <span><span style="font-family:'IBM Plex Mono',monospace">${fmtMoney(t.amount)}</span>${t.note?` — ${esc(t.note)}`:""}</span>
+              <button data-action="delete-tx" data-id="${t.id}"><i data-lucide="x" style="width:12px;height:12px;color:#B0B4A6"></i></button>
+            </div>`).join("")}
+          </div>`:""}
+        </div>`;
+      }).join("")}
+    </div>
+
+    <div class="flex items-center justify-between mt-6 mb-3">
+      <h2 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg flex items-center gap-1.5"><i data-lucide="refresh-cw" style="width:16px;height:16px"></i> Subscriptions</h2>
+      <button data-action="open-modal" data-modal="add-sub" class="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-xl" style="${primaryBtn()}"><i data-lucide="plus" style="width:14px;height:14px"></i> Add</button>
+    </div>
+    ${state.subscriptions.length===0?`<p class="text-sm" style="color:#5B6470">Add streaming, software, or other recurring charges — you'll get a heads-up a few days before each renews.</p>`:`
+      <p class="text-xs mb-2" style="color:#5B6470">${fmtMoney(totalMonthlySubs)}/month across ${state.subscriptions.length} subscription${state.subscriptions.length>1?"s":""}</p>
+      <div class="space-y-2">${state.subscriptions.map(sub=>{const nd=nextRenewalDate(sub), away=daysUntil(nd); return `<div class="flex items-center justify-between p-3 rounded-xl" style="${cardStyle()}">
+        <div><p class="text-sm font-medium">${esc(sub.name)}</p><p class="text-xs" style="color:#5B6470">${fmtMoney(sub.amount)}/${sub.cadence} · renews in ${away}d</p></div>
+        <button data-action="delete-sub" data-id="${sub.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:#B0B4A6"></i></button>
+      </div>`;}).join("")}</div>
+    `}
+
+    <div class="flex items-center justify-between mt-6 mb-3">
+      <h2 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg flex items-center gap-1.5"><i data-lucide="users" style="width:16px;height:16px"></i> Split with roommates</h2>
+      <button data-action="open-modal" data-modal="add-split" class="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-xl" style="${primaryBtn()}"><i data-lucide="plus" style="width:14px;height:14px"></i> Add</button>
+    </div>
+    ${Object.keys(balances).length===0?`<p class="text-sm" style="color:#5B6470">Log a shared cost — utilities, groceries, an Uber — and keep track of who owes who.</p>`:`
+      <div class="space-y-2">${Object.entries(balances).map(([person,bal])=>`<div class="flex items-center justify-between p-3 rounded-xl" style="${cardStyle()}">
+        <span class="text-sm font-medium">${esc(person)}</span>
+        <div class="flex items-center gap-2">
+          <span class="text-sm" style="font-family:'IBM Plex Mono',monospace;color:${bal>=0?'#1F7A5C':'#B4432F'}">${bal>=0?`owes you ${fmtMoney(bal)}`:`you owe ${fmtMoney(bal)}`}</span>
+          <button data-action="settle-split" data-person="${esc(person)}" class="text-xs px-2 py-1 rounded-xl" style="border:1px solid #D8DBCF;color:#5B6470">Settle</button>
+        </div>
+      </div>`).join("")}</div>
+    `}
+  </div>`;
+}
+
+/* -------------------------------- Map Tab -------------------------------- */
+function MapTabHTML(){
+  return `<div>
+    <div class="flex items-center justify-between mb-3">
+      <h2 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg">Campus map</h2>
+      <button data-action="toggle-map-add" class="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-xl" style="background:${state.mapAddMode?'#C77D2D':'#3B4B6B'};color:white">
+        <i data-lucide="plus" style="width:14px;height:14px"></i> ${state.mapAddMode?"Tap the map…":"Pin"}
+      </button>
+    </div>
+    <svg id="campus-map-svg" viewBox="0 0 100 63.6" class="w-full rounded-xl" style="background:#E3E6DA;cursor:${state.mapAddMode?'crosshair':'default'};border:1px solid #D8DBCF">
+      <rect x="20" y="14" width="60" height="36" fill="#EEF0E6" stroke="#C3C7B8" stroke-width="0.4"/>
+      <line x1="20" y1="32" x2="80" y2="32" stroke="#C3C7B8" stroke-width="0.4"/>
+      <line x1="50" y1="14" x2="50" y2="50" stroke="#C3C7B8" stroke-width="0.4"/>
+      ${state.pins.map(p=>`<g><circle cx="${p.x}" cy="${p.y*0.636}" r="1.6" fill="#3B4B6B" stroke="white" stroke-width="0.4"/><text x="${p.x}" y="${p.y*0.636-2.5}" font-size="3" text-anchor="middle" fill="#1B2430" font-family="Inter, sans-serif">${esc(p.name)}</text></g>`).join("")}
+    </svg>
+    <p class="text-xs mt-2" style="color:#5B6470">Tap "Pin" then tap the map to mark a building. Walk-time warnings on your schedule use these pins.</p>
+    <div class="mt-4 space-y-2">
+      ${state.pins.map(p=>`<div class="flex items-center justify-between p-2.5 rounded-xl" style="${cardStyle()}">
+        <span class="flex items-center gap-1.5 text-sm"><i data-lucide="map-pin" style="width:13px;height:13px;color:#3B4B6B"></i> ${esc(p.name)}</span>
+        <button data-action="delete-pin" data-id="${p.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:#B0B4A6"></i></button>
+      </div>`).join("")}
+    </div>
+  </div>`;
+}
+
+/* ------------------------------- Events Tab ------------------------------ */
+function EventsTabHTML(){
+  const upcoming=[...state.events].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  return `<div>
+    <div class="flex items-center justify-between mb-3">
+      <h2 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg">Events</h2>
+      <button data-action="open-modal" data-modal="add-event" class="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-xl" style="${primaryBtn()}"><i data-lucide="plus" style="width:14px;height:14px"></i> Event</button>
+    </div>
+    ${upcoming.length===0?`<p class="text-sm" style="color:#5B6470">No events yet.</p>`:""}
+    <div class="space-y-2">
+      ${upcoming.map(e=>`<div class="rounded-xl p-3.5 flex items-start justify-between" style="${cardStyle()}">
+        <div>
+          <p style="font-family:'Fraunces',serif;font-weight:600">${esc(e.title)}</p>
+          <p class="text-sm" style="color:#5B6470">${new Date(e.date).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}${e.time?` · ${fmtTime(e.time)}`:""}${e.location?` · ${esc(e.location)}`:""}</p>
+          ${e.note?`<p class="text-xs mt-1" style="color:#5B6470">${esc(e.note)}</p>`:""}
+        </div>
+        <button data-action="delete-event" data-id="${e.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:#B0B4A6"></i></button>
+      </div>`).join("")}
+    </div>
+  </div>`;
+}
+
+/* --------------------------------- Modals -------------------------------- */
+function ModalsHTML(){
+  if(!state.modal) return "";
+  const m=state.modal;
+  if(m.type==="feed") return FeedModalHTML();
+  if(m.type==="id") return IdModalHTML();
+  if(m.type==="add-date") return ModalWrap("Add important date", `
+    ${fieldHtml("What is it", `<input id="md-label" placeholder="e.g. Add/Drop Deadline" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    ${fieldHtml("Date", `<input id="md-date" type="date" value="${new Date().toISOString().slice(0,10)}" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    <button data-action="submit-add-date" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Save date</button>
+  `);
+  if(m.type==="add-assignment") return ModalWrap("Add assignment", `
+    ${fieldHtml("Assignment", `<input id="ma-title" placeholder="e.g. Chem lab report" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    ${fieldHtml("Due date", `<input id="ma-due" type="date" value="${new Date().toISOString().slice(0,10)}" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    <button data-action="submit-add-assignment" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Add assignment</button>
+  `);
+  if(m.type==="add-class") return AddClassModalHTML();
+  if(m.type==="add-category") return ModalWrap("New category", `
+    ${fieldHtml("Name", `<input id="mc-name" placeholder="e.g. Subscriptions" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    ${fieldHtml("Weekly limit", `<input id="mc-limit" type="number" placeholder="0.00" class="px-3 py-2 rounded-xl" style="${inputStyle};font-family:'IBM Plex Mono',monospace"/>`)}
+    <label class="flex items-center gap-2 mb-4 text-sm"><input type="checkbox" id="mc-disc" checked/> Count as discretionary</label>
+    <button data-action="submit-add-category" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Create category</button>
+  `);
+  if(m.type==="add-tx") return ModalWrap(`Add to ${state.budgetCats.find(c=>c.id===m.catId)?.name||""}`, `
+    ${fieldHtml("Amount", `<input id="mt-amount" type="number" placeholder="0.00" class="px-3 py-2 rounded-xl text-lg" style="${inputStyle};font-family:'IBM Plex Mono',monospace"/>`)}
+    ${fieldHtml("Note (optional)", `<input id="mt-note" placeholder="e.g. Lunch" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    <button data-action="submit-add-tx" data-catid="${m.catId}" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Log expense</button>
+  `);
+  if(m.type==="semester-setup") return SemesterSetupModalHTML();
+  if(m.type==="add-sub") return ModalWrap("Add subscription", `
+    ${fieldHtml("Name", `<input id="ms-name" placeholder="e.g. Spotify" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    ${fieldHtml("Amount", `<input id="ms-amount" type="number" placeholder="0.00" class="px-3 py-2 rounded-xl" style="${inputStyle};font-family:'IBM Plex Mono',monospace"/>`)}
+    ${fieldHtml("Cadence", `<select id="ms-cadence" class="px-3 py-2 rounded-xl" style="${inputStyle}"><option value="weekly">Weekly</option><option value="monthly" selected>Monthly</option><option value="yearly">Yearly</option></select>`)}
+    ${fieldHtml("Next renewal date", `<input id="ms-renews" type="date" value="${new Date().toISOString().slice(0,10)}" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    <button data-action="submit-add-sub" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Add subscription</button>
+  `);
+  if(m.type==="add-split") return ModalWrap("Add split expense", `
+    ${fieldHtml("What was it", `<input id="msp-desc" placeholder="e.g. Electric bill" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    ${fieldHtml("Their share", `<input id="msp-amount" type="number" placeholder="0.00" class="px-3 py-2 rounded-xl" style="${inputStyle};font-family:'IBM Plex Mono',monospace"/>`)}
+    ${fieldHtml("Roommate's name", `<input id="msp-person" placeholder="e.g. Jordan" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    <div class="flex gap-2 mb-4">
+      <button data-action="set-split-direction" data-owe="false" class="flex-1 py-2 rounded-xl text-sm" id="msp-btn-they" style="background:#3B4B6B;color:white;border:1px solid #D8DBCF">They owe me</button>
+      <button data-action="set-split-direction" data-owe="true" class="flex-1 py-2 rounded-xl text-sm" id="msp-btn-i" style="background:white;color:#1B2430;border:1px solid #D8DBCF">I owe them</button>
+    </div>
+    <button data-action="submit-add-split" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Save</button>
+  `);
+  if(m.type==="add-event") return ModalWrap("Add event", `
+    ${fieldHtml("Title", `<input id="me-title" placeholder="e.g. Fall Formal" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    <div class="flex gap-3">
+      ${fieldHtml("Date", `<input id="me-date" type="date" value="${new Date().toISOString().slice(0,10)}" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+      ${fieldHtml("Time (optional)", `<input id="me-time" type="time" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    </div>
+    ${fieldHtml("Location (optional)", `<select id="me-pin" class="px-3 py-2 rounded-xl" style="${inputStyle}"><option value="">No location set</option>${state.pins.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>`)}
+    ${fieldHtml("Note (optional)", `<input id="me-note" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    <button data-action="submit-add-event" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Add event</button>
+  `);
+  if(m.type==="name-pin") return ModalWrap("Name this pin", `
+    ${fieldHtml("Building or spot name", `<input id="mp-name" placeholder="e.g. Science Hall" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    <button data-action="submit-name-pin" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Save pin</button>
+  `);
+  return "";
+}
+function FeedModalHTML(){
+  return ModalWrap("Notifications", `
+    ${state.alerts.length===0?`<p class="text-sm" style="color:#5B6470">No alerts yet. You'll see class reminders, tight-transition warnings, event reminders, and budget alerts here.</p>`:""}
+    <div class="space-y-2">
+      ${state.alerts.map(a=>`<div class="flex items-start gap-2 p-2.5 rounded-xl" style="background:#F2F3EB">
+        <i data-lucide="${LEVEL_ICON[a.level]||'bell'}" style="width:14px;height:14px;color:${LEVEL_COLOR[a.level]};margin-top:2px;flex-shrink:0"></i>
+        <div class="flex-1"><p class="text-sm">${esc(a.message)}</p><p class="text-xs" style="color:#5B6470">${new Date(a.timestamp).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</p></div>
+      </div>`).join("")}
+    </div>
+  `);
+}
+function IdModalHTML(){
+  const p=state.draftProfile || {...state.profile};
+  const todays=state.classes.filter(c=>c.days.includes(new Date().getDay())).sort((a,b)=>parseTime(a.start)-parseTime(b.start));
+  return ModalWrap("Student ID", `
+    <div class="rounded-xl p-4 mb-4" style="background:linear-gradient(135deg,#3B4B6B,#2E3C57);color:white;box-shadow:0 8px 24px -8px rgba(59,75,107,.5)">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-1.5">${BrandMarkSVG(22)}<span class="text-xs font-medium tracking-wide uppercase" style="opacity:.85">Campus</span></div>
+        ${isVerified()?`<span class="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,.15)"><i data-lucide="shield-check" style="width:11px;height:11px"></i> Student email verified</span>`
+          :`<span class="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style="background:rgba(244,199,122,.25)"><i data-lucide="clock" style="width:11px;height:11px"></i> Pending</span>`}
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="rounded-full flex items-center justify-center flex-shrink-0" style="width:56px;height:56px;background:rgba(255,255,255,.15);overflow:hidden;border:2px solid rgba(255,255,255,.3)">
+          ${p.photo?`<img src="${p.photo}" style="width:100%;height:100%;object-fit:cover"/>`:`<i data-lucide="camera" style="width:20px;height:20px;color:rgba(255,255,255,.6)"></i>`}
+        </div>
+        <div class="min-w-0">
+          <p style="font-family:'Fraunces',serif;font-weight:600" class="text-lg truncate">${esc(p.name)||"Your name"}</p>
+          <p class="text-xs truncate" style="opacity:.8">${esc(p.school)||"Your school"}</p>
+          <p class="text-xs mt-0.5" style="font-family:'IBM Plex Mono',monospace;opacity:.8">${esc(p.studentId)||"ID number"}</p>
+        </div>
+      </div>
+      ${todays.length?`<div class="mt-3 pt-3" style="border-top:1px solid rgba(255,255,255,.15)">
+        <p class="text-[10px] uppercase tracking-wide mb-1" style="opacity:.7">Today</p>
+        ${todays.slice(0,3).map(c=>`<p class="text-xs" style="opacity:.9">${fmtTime(c.start)} · ${esc(c.name)}</p>`).join("")}
+      </div>`:""}
+    </div>
+    ${fieldHtml("Name", `<input id="id-name" value="${esc(p.name)}" placeholder="Your name" class="px-3 py-2 rounded-xl" style="${inputStyle}" oninput="window.__idFieldChanged()"/>`)}
+    ${fieldHtml("School", `<input id="id-school" value="${esc(p.school)}" placeholder="Your college" class="px-3 py-2 rounded-xl" style="${inputStyle}" oninput="window.__idFieldChanged()"/>`)}
+    ${fieldHtml("Student ID number", `<input id="id-studentid" value="${esc(p.studentId)}" placeholder="e.g. 20260145" class="px-3 py-2 rounded-xl" style="${inputStyle};font-family:'IBM Plex Mono',monospace" oninput="window.__idFieldChanged()"/>`)}
+    ${fieldHtml("Photo", `
+      <input id="id-photo-file" type="file" accept="image/*" class="hidden" onchange="window.__handleIdPhoto(event)"/>
+      <button data-action="trigger-photo" class="w-full py-2 rounded-xl text-sm flex items-center justify-center gap-1.5" style="border:1px solid #D8DBCF;color:#3B4B6B"><i data-lucide="camera" style="width:14px;height:14px"></i> ${p.photo?"Replace photo":"Upload a photo"}</button>
+      <div id="id-photo-error" class="text-xs mt-1" style="color:#B4432F"></div>
+    `)}
+    <div class="mb-4 p-3 rounded-xl text-sm" style="background:#F2F3EB">
+      ${isVerified()?`
+        <p class="flex items-center gap-1.5" style="color:#1F7A5C"><i data-lucide="shield-check" style="width:14px;height:14px"></i> Signed in with ${esc(state.enrollment.email)}</p>
+        <p class="text-xs mt-1" style="color:#5B6470">Verified badge is based on a student-email domain match, not your school's registrar.</p>
+      `:`
+        <p class="flex items-center gap-1.5" style="color:#C77D2D"><i data-lucide="clock" style="width:14px;height:14px"></i> Pending — not enrolled yet</p>
+        <p class="text-xs mt-1" style="color:#5B6470">You're using Campus without a verified student email. Sign in with your student email once you're registered to switch to Verified.</p>
+      `}
+    </div>
+    <button data-action="save-id" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Save ID</button>
+    <p class="text-xs mt-3 text-center" style="color:#5B6470">Your photo is stored only in this browser's local storage on this device.</p>
+    <button data-action="sign-out" class="w-full text-xs mt-3 text-center" style="color:#B4432F">Sign out</button>
+  `);
+}
+function SemesterSetupModalHTML(){
+  const s=state.semester;
+  return ModalWrap("Semester funds", `
+    ${fieldHtml("Total funds for the semester", `<input id="ss-total" type="number" value="${s?s.total:""}" placeholder="e.g. 2500" class="px-3 py-2 rounded-xl" style="${inputStyle};font-family:'IBM Plex Mono',monospace"/>`)}
+    <div class="flex gap-3">
+      ${fieldHtml("Start date", `<input id="ss-start" type="date" value="${s?s.startDate:new Date().toISOString().slice(0,10)}" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+      ${fieldHtml("End date", `<input id="ss-end" type="date" value="${s?s.endDate:""}" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    </div>
+    <button data-action="submit-semester" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5 mb-2" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Save</button>
+    ${s?`<button data-action="clear-semester" class="w-full py-2 rounded-xl text-sm" style="color:#B4432F">Remove semester tracking</button>`:""}
+  `);
+}
+function AddClassModalHTML(){
+  const draft=state.draftClass || {days:[], color:CLASS_COLORS[0]};
+  return ModalWrap("Add class", `
+    ${fieldHtml("Name", `<input id="cl-name" placeholder="e.g. Chem 101" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    ${fieldHtml("Days", `<div class="flex gap-1.5 flex-wrap">${[1,2,3,4,5,6,0].map(d=>`<button data-action="toggle-class-day" data-day="${d}" class="px-2.5 py-1 rounded-full text-xs" style="background:${draft.days.includes(d)?'#3B4B6B':'white'};color:${draft.days.includes(d)?'white':'#1B2430'};border:1px solid #D8DBCF">${DAY_LABELS[d]}</button>`).join("")}</div>`)}
+    <div class="flex gap-3">
+      ${fieldHtml("Start", `<input id="cl-start" type="time" value="09:00" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+      ${fieldHtml("End", `<input id="cl-end" type="time" value="10:00" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    </div>
+    ${fieldHtml("Building (optional)", `<select id="cl-pin" class="px-3 py-2 rounded-xl" style="${inputStyle}"><option value="">No location set</option>${state.pins.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>${state.pins.length===0?`<p class="text-xs mt-1" style="color:#5B6470">Add pins on the Map tab to enable walk-time warnings.</p>`:""}`)}
+    ${fieldHtml("Color", `<div class="flex gap-2">${CLASS_COLORS.map(c=>`<button data-action="set-class-color" data-color="${c}" class="w-6 h-6 rounded-full" style="background:${c};outline:${draft.color===c?'2px solid #1B2430':'none'};outline-offset:2px"></button>`).join("")}</div>`)}
+    <button data-action="submit-add-class" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Add class</button>
+  `);
+}
+
+/* ------------------------------ Blue Bonnet ------------------------------- */
+function BlueBonnetFabHTML(){
+  return `<button data-action="open-bluebonnet" class="fixed z-40 rounded-full flex items-center justify-center" style="bottom:88px;right:20px;width:52px;height:52px;background:linear-gradient(135deg,#3B4B6B,#2E3C57);box-shadow:0 8px 20px -4px rgba(59,75,107,.5)">
+    <i data-lucide="sparkles" style="width:22px;height:22px;color:white"></i>
+  </button>`;
+}
+function BlueBonnetModalHTML(){
+  return `<div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style="background:rgba(27,36,48,.5);backdrop-filter:blur(2px)" data-action="close-bluebonnet">
+    <div class="modal-up w-full sm:max-w-sm flex flex-col rounded-t-xl sm:rounded-xl overflow-hidden" style="height:80vh;max-height:600px;background:#FBFBF6;box-shadow:0 -8px 30px rgba(27,36,48,.15),0 20px 40px -12px rgba(27,36,48,.25)" data-stop="1">
+      <div class="flex items-center justify-between p-4" style="border-bottom:1px solid #D8DBCF">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:#3B4B6B"><i data-lucide="sparkles" style="width:15px;height:15px;color:white"></i></div>
+          <div><p style="font-family:'Fraunces',serif;font-weight:600" class="text-sm leading-none">Blue Bonnet</p><p class="text-[10px]" style="color:#5B6470">Your campus assistant</p></div>
+        </div>
+        <button data-action="close-bluebonnet"><i data-lucide="x" style="width:18px;height:18px;color:#5B6470"></i></button>
+      </div>
+      <div id="bb-scroll" class="flex-1 overflow-y-auto p-4 space-y-3">
+        ${state.bbMessages.map(m=>`<div class="flex" style="justify-content:${m.role==='user'?'flex-end':'flex-start'}">
+          <div class="rounded-xl px-3 py-2 text-sm" style="max-width:80%;background:${m.role==='user'?'#3B4B6B':'#F2F3EB'};color:${m.role==='user'?'white':'#1B2430'};white-space:pre-wrap">${esc(m.content)}</div>
+        </div>`).join("")}
+        ${state.bbLoading?`<div class="flex justify-start"><div class="rounded-xl px-3 py-2 text-sm" style="background:#F2F3EB;color:#5B6470">Thinking…</div></div>`:""}
+        ${state.bbError?`<p class="text-xs" style="color:#B4432F">${esc(state.bbError)}</p>`:""}
+      </div>
+      <div class="p-3 flex gap-2" style="border-top:1px solid #D8DBCF">
+        <input id="bb-input" placeholder="Ask about your classes, budget, deadlines…" class="flex-1 px-3 py-2 rounded-xl text-sm" style="${inputStyle}" onkeydown="if(event.key==='Enter') window.__sendBB()"/>
+        <button data-action="send-bluebonnet" ${state.bbLoading?"disabled":""} class="px-3 rounded-xl flex items-center justify-center" style="background:#3B4B6B;color:white"><i data-lucide="send" style="width:16px;height:16px"></i></button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ------------------------------ main render ------------------------------ */
+function AppHTML(){
+  if(!state.enrollment) return EnrollmentGateHTML();
+  let tabHtml="";
+  if(state.tab==="today") tabHtml=TodayTabHTML();
+  else if(state.tab==="schedule") tabHtml=ScheduleTabHTML();
+  else if(state.tab==="budget") tabHtml=BudgetTabHTML();
+  else if(state.tab==="map") tabHtml = isVerified()?MapTabHTML():LockedFeatureHTML("the campus map");
+  else if(state.tab==="events") tabHtml = isVerified()?EventsTabHTML():LockedFeatureHTML("campus events");
+
+  return `<div style="min-height:100vh" class="pb-24">
+    ${HeaderHTML()}
+    ${BannersHTML()}
+    <div class="fade-in max-w-md mx-auto px-5 pt-4">${tabHtml}</div>
+    ${BottomNavHTML()}
+    ${BlueBonnetFabHTML()}
+    ${state.showBlueBonnet?BlueBonnetModalHTML():""}
+    ${ModalsHTML()}
+  </div>`;
+}
+function render(){
+  document.getElementById("app").innerHTML = AppHTML();
+  if(window.lucide) lucide.createIcons();
+  const bbScroll=document.getElementById("bb-scroll");
+  if(bbScroll) bbScroll.scrollTop=bbScroll.scrollHeight;
+}
+
+/* ------------------------------ event handling ---------------------------- */
+window.__addEnrollItem=function(){
+  const inp=document.getElementById("enroll-item-input");
+  if(!inp || !inp.value.trim()) return;
+  state.enrollChecklist=[...state.enrollChecklist, {id:uid(), text:inp.value.trim(), done:false}];
+  persist("campus-enrollment-checklist", state.enrollChecklist);
+  render();
+};
+window.__addChecklistItem=function(key){
+  const inp=document.getElementById("ck-input-"+btoa(key).replace(/=/g,""));
+  if(!inp || !inp.value.trim()) return;
+  const items=LS.get(key, []);
+  items.push({id:uid(), text:inp.value.trim(), done:false});
+  LS.set(key, items);
+  render();
+};
+window.__handleIdPhoto=function(e){
+  const file=e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(){
+    const img=new Image();
+    img.onload=function(){
+      const maxSize=320, scale=Math.min(1, maxSize/Math.max(img.width,img.height));
+      const canvas=document.createElement("canvas");
+      canvas.width=img.width*scale; canvas.height=img.height*scale;
+      const ctx=canvas.getContext("2d");
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      state.draftProfile = state.draftProfile || {...state.profile};
+      state.draftProfile.photo = canvas.toDataURL("image/jpeg", 0.85);
+      render();
+    };
+    img.onerror=function(){ const el=document.getElementById("id-photo-error"); if(el) el.textContent="Couldn't process that photo — try a different one."; };
+    img.src=reader.result;
+  };
+  reader.onerror=function(){ const el=document.getElementById("id-photo-error"); if(el) el.textContent="Couldn't read that file."; };
+  reader.readAsDataURL(file);
+};
+window.__idFieldChanged=function(){
+  state.draftProfile = state.draftProfile || {...state.profile};
+  state.draftProfile.name = document.getElementById("id-name").value;
+  state.draftProfile.school = document.getElementById("id-school").value;
+  state.draftProfile.studentId = document.getElementById("id-studentid").value;
+};
+window.__sendBB=function(){ sendBlueBonnet(); };
+
+document.addEventListener("click", function(e){
+  const modalBg = e.target.closest('[data-action="close-modal"]');
+  const stopArea = e.target.closest('[data-stop]');
+  if(modalBg && !stopArea){ state.modal=null; render(); return; }
+  const bbBg = e.target.closest('[data-action="close-bluebonnet"]');
+  if(bbBg && !stopArea){ state.showBlueBonnet=false; render(); return; }
+
+  const t = e.target.closest("[data-action]");
+  if(!t) return;
+  const action=t.dataset.action;
+
+  switch(action){
+    case "set-tab": state.tab=t.dataset.tab; render(); break;
+    case "dismiss-banner": state.dismissed=[...state.dismissed, t.dataset.id]; render(); break;
+    case "open-feed": state.modal={type:"feed"}; render(); break;
+    case "open-id": state.draftProfile={...state.profile}; state.modal={type:"id"}; render(); break;
+    case "close-modal": state.modal=null; render(); break;
+    case "open-bluebonnet": state.showBlueBonnet=true; render(); break;
+    case "gate-submit": gateSubmit(); break;
+    case "gate-pending": gatePending(); break;
+    case "lock-verify": lockVerify(); break;
+
+    case "toggle-enroll-checklist": state.enrollChecklistOpen = !(state.enrollChecklistOpen===null?!isVerified():state.enrollChecklistOpen); render(); break;
+    case "toggle-enroll-item": {
+      const id=t.dataset.id;
+      state.enrollChecklist=state.enrollChecklist.map(x=>x.id===id?{...x,done:!x.done}:x);
+      persist("campus-enrollment-checklist", state.enrollChecklist); render(); break;
+    }
+    case "delete-enroll-item": {
+      state.enrollChecklist=state.enrollChecklist.filter(x=>x.id!==t.dataset.id);
+      persist("campus-enrollment-checklist", state.enrollChecklist); render(); break;
+    }
+    case "add-enroll-item": window.__addEnrollItem(); break;
+
+    case "toggle-safety": state.safetyOpen=!state.safetyOpen; render(); break;
+    case "edit-safety": state.safetyEditing=true; state.safetyOpen=true; render(); break;
+    case "save-safety": {
+      state.safetyInfo={ safetyNumber:document.getElementById("safety-num").value, escortNumber:document.getElementById("escort-num").value };
+      persist("campus-safety-info", state.safetyInfo);
+      state.safetyEditing=false; render(); break;
+    }
+    case "toggle-support": state.supportOpen=!state.supportOpen; render(); break;
+    case "edit-support": state.supportEditing=true; state.supportOpen=true; render(); break;
+    case "save-support": {
+      state.supportInfo={ center:document.getElementById("support-center").value, number:document.getElementById("support-number").value };
+      persist("campus-support-info", state.supportInfo);
+      state.supportEditing=false; render(); break;
+    }
+
+    case "set-schedule-day": state.scheduleDay=Number(t.dataset.day); render(); break;
+    case "toggle-class-checklist": state.openChecklist = state.openChecklist===t.dataset.id?null:t.dataset.id; render(); break;
+    case "delete-class": state.classes=state.classes.filter(c=>c.id!==t.dataset.id); persist("campus-classes", state.classes); render(); break;
+    case "delete-date": state.importantDates=state.importantDates.filter(d=>d.id!==t.dataset.id); persist("campus-dates", state.importantDates); render(); break;
+    case "toggle-assignment": {
+      const id=t.dataset.id;
+      state.assignments=state.assignments.map(a=>a.id===id?{...a,done:!a.done}:a);
+      persist("campus-assignments", state.assignments); render(); break;
+    }
+    case "delete-assignment": state.assignments=state.assignments.filter(a=>a.id!==t.dataset.id); persist("campus-assignments", state.assignments); render(); break;
+
+    case "toggle-checklist-item": {
+      const key=t.dataset.key, id=t.dataset.id;
+      const items=LS.get(key, []).map(x=>x.id===id?{...x,done:!x.done}:x);
+      LS.set(key, items); render(); break;
+    }
+    case "delete-checklist-item": {
+      const key=t.dataset.key, id=t.dataset.id;
+      const items=LS.get(key, []).filter(x=>x.id!==id);
+      LS.set(key, items); render(); break;
+    }
+    case "add-checklist-item": window.__addChecklistItem(t.dataset.key); break;
+
+    case "open-modal": {
+      const type=t.dataset.modal;
+      if(type==="add-class") state.draftClass={days:[], color:CLASS_COLORS[0]};
+      if(type==="add-split") state.draftSplitOwe=false;
+      state.modal={type, catId:t.dataset.catid};
+      render(); break;
+    }
+    case "toggle-class-day": {
+      const d=Number(t.dataset.day);
+      const draft=state.draftClass||{days:[],color:CLASS_COLORS[0]};
+      draft.days = draft.days.includes(d)? draft.days.filter(x=>x!==d) : [...draft.days, d];
+      state.draftClass=draft; render(); break;
+    }
+    case "set-class-color": {
+      const draft=state.draftClass||{days:[],color:CLASS_COLORS[0]};
+      draft.color=t.dataset.color; state.draftClass=draft; render(); break;
+    }
+    case "submit-add-class": {
+      const name=document.getElementById("cl-name").value.trim();
+      const start=document.getElementById("cl-start").value;
+      const end=document.getElementById("cl-end").value;
+      const pinId=document.getElementById("cl-pin").value;
+      const draft=state.draftClass||{days:[],color:CLASS_COLORS[0]};
+      if(!name || draft.days.length===0) return;
+      const pin=state.pins.find(p=>p.id===pinId);
+      state.classes=[...state.classes, {id:uid(), name, days:draft.days, start, end, pinId:pinId||null, location:pin?pin.name:"", color:draft.color}];
+      persist("campus-classes", state.classes);
+      state.modal=null; state.draftClass=null; render(); break;
+    }
+    case "submit-add-date": {
+      const label=document.getElementById("md-label").value.trim();
+      const date=document.getElementById("md-date").value;
+      if(!label) return;
+      state.importantDates=[...state.importantDates, {id:uid(), label, date}];
+      persist("campus-dates", state.importantDates);
+      state.modal=null; render(); break;
+    }
+    case "submit-add-assignment": {
+      const title=document.getElementById("ma-title").value.trim();
+      const dueDate=document.getElementById("ma-due").value;
+      if(!title) return;
+      state.assignments=[...state.assignments, {id:uid(), title, dueDate, done:false}];
+      persist("campus-assignments", state.assignments);
+      state.modal=null; render(); break;
+    }
+
+    case "toggle-budget-cat": state.expandedBudgetCat = state.expandedBudgetCat===t.dataset.id?null:t.dataset.id; render(); break;
+    case "delete-category": {
+      state.budgetCats=state.budgetCats.filter(c=>c.id!==t.dataset.id);
+      persist("campus-budget-cats", state.budgetCats); render(); break;
+    }
+    case "submit-add-category": {
+      const name=document.getElementById("mc-name").value.trim();
+      const limit=parseFloat(document.getElementById("mc-limit").value);
+      const disc=document.getElementById("mc-disc").checked;
+      if(!name || !limit || limit<=0) return;
+      state.budgetCats=[...state.budgetCats, {id:uid(), name, weeklyLimit:limit, discretionary:disc}];
+      persist("campus-budget-cats", state.budgetCats);
+      state.modal=null; render(); break;
+    }
+    case "delete-tx": state.budgetTx=state.budgetTx.filter(t2=>t2.id!==t.dataset.id); persist("campus-budget-tx", state.budgetTx); render(); break;
+    case "submit-add-tx": {
+      const catId=t.dataset.catid;
+      const amount=parseFloat(document.getElementById("mt-amount").value);
+      const note=document.getElementById("mt-note").value;
+      const cat=state.budgetCats.find(c=>c.id===catId);
+      if(!cat || !amount || amount<=0) return;
+      const ws=startOfWeek(new Date()), we=endOfWeek(new Date());
+      const prevSpent=state.budgetTx.filter(tx=>tx.categoryId===catId).filter(tx=>{const d=new Date(tx.date); return d>=ws&&d<=we;}).reduce((s,tx)=>s+tx.amount,0);
+      state.budgetTx=[...state.budgetTx, {id:uid(), categoryId:catId, amount, note:note||"", date:new Date().toISOString()}];
+      persist("campus-budget-tx", state.budgetTx);
+      const newSpent=prevSpent+amount, prevPct=(prevSpent/cat.weeklyLimit)*100, newPct=(newSpent/cat.weeklyLimit)*100;
+      if(prevPct<100 && newPct>=100) pushAlert(`budget-over-${cat.id}-${Date.now()}`, `${cat.name} hit its weekly limit of ${fmtMoney(cat.weeklyLimit)}.`, "over");
+      else if(prevPct<75 && newPct>=75) pushAlert(`budget-warn-${cat.id}-${Date.now()}`, `${cat.name} is at ${Math.round(newPct)}% of its weekly limit.`, "warn");
+      state.modal=null; render(); break;
+    }
+    case "submit-semester": {
+      const total=parseFloat(document.getElementById("ss-total").value);
+      const startDate=document.getElementById("ss-start").value;
+      const endDate=document.getElementById("ss-end").value;
+      if(!total || total<=0 || !endDate) return;
+      state.semester={total, startDate, endDate};
+      persist("campus-semester", state.semester);
+      state.modal=null; render(); break;
+    }
+    case "clear-semester": state.semester=null; persist("campus-semester", null); state.modal=null; render(); break;
+    case "delete-sub": state.subscriptions=state.subscriptions.filter(s=>s.id!==t.dataset.id); persist("campus-subscriptions", state.subscriptions); render(); break;
+    case "submit-add-sub": {
+      const name=document.getElementById("ms-name").value.trim();
+      const amount=parseFloat(document.getElementById("ms-amount").value);
+      const cadence=document.getElementById("ms-cadence").value;
+      const renewsOn=document.getElementById("ms-renews").value;
+      if(!name || !amount || amount<=0) return;
+      state.subscriptions=[...state.subscriptions, {id:uid(), name, amount, cadence, renewsOn}];
+      persist("campus-subscriptions", state.subscriptions);
+      state.modal=null; render(); break;
+    }
+    case "settle-split": {
+      const person=t.dataset.person;
+      state.splits=state.splits.map(s=>s.person===person?{...s,settled:true}:s);
+      persist("campus-splits", state.splits); render(); break;
+    }
+    case "set-split-direction": {
+      state.draftSplitOwe = t.dataset.owe==="true";
+      const theyBtn=document.getElementById("msp-btn-they"), iBtn=document.getElementById("msp-btn-i");
+      if(theyBtn && iBtn){
+        theyBtn.style.background = state.draftSplitOwe? "white":"#3B4B6B"; theyBtn.style.color = state.draftSplitOwe? "#1B2430":"white";
+        iBtn.style.background = state.draftSplitOwe? "#3B4B6B":"white"; iBtn.style.color = state.draftSplitOwe? "white":"#1B2430";
+      }
+      break;
+    }
+    case "submit-add-split": {
+      const description=document.getElementById("msp-desc").value.trim();
+      const amount=parseFloat(document.getElementById("msp-amount").value);
+      const person=document.getElementById("msp-person").value.trim();
+      if(!description || !amount || amount<=0 || !person) return;
+      state.splits=[...state.splits, {id:uid(), description, amount, person, iOwe:!!state.draftSplitOwe, settled:false, date:new Date().toISOString()}];
+      persist("campus-splits", state.splits);
+      state.modal=null; render(); break;
+    }
+    case "delete-event": state.events=state.events.filter(ev=>ev.id!==t.dataset.id); persist("campus-events", state.events); render(); break;
+    case "submit-add-event": {
+      const title=document.getElementById("me-title").value.trim();
+      const date=document.getElementById("me-date").value;
+      const time=document.getElementById("me-time").value;
+      const pinId=document.getElementById("me-pin").value;
+      const note=document.getElementById("me-note").value;
+      if(!title) return;
+      const pin=state.pins.find(p=>p.id===pinId);
+      state.events=[...state.events, {id:uid(), title, date, time, pinId:pinId||null, location:pin?pin.name:"", note}];
+      persist("campus-events", state.events);
+      state.modal=null; render(); break;
+    }
+
+    case "toggle-map-add": state.mapAddMode=!state.mapAddMode; render(); break;
+    case "delete-pin": state.pins=state.pins.filter(p=>p.id!==t.dataset.id); persist("campus-pins", state.pins); render(); break;
+    case "submit-name-pin": {
+      const name=document.getElementById("mp-name").value.trim();
+      if(!name || !state.pendingPin) return;
+      state.pins=[...state.pins, {id:uid(), name, x:state.pendingPin.x, y:state.pendingPin.y}];
+      persist("campus-pins", state.pins);
+      state.pendingPin=null; state.modal=null; render(); break;
+    }
+
+    case "trigger-photo": document.getElementById("id-photo-file").click(); break;
+    case "save-id": {
+      const dp=state.draftProfile||state.profile;
+      state.profile={ ...state.profile, name:dp.name||"", school:dp.school||"", studentId:dp.studentId||"", photo:dp.photo||state.profile.photo||"" };
+      persist("campus-profile", state.profile);
+      state.draftProfile=null; state.modal=null; render(); break;
+    }
+    case "sign-out": state.enrollment=null; persist("campus-enrollment", null); state.modal=null; render(); break;
+
+    case "send-bluebonnet": sendBlueBonnet(); break;
+  }
+});
+
+document.addEventListener("click", function(e){
+  const svg=document.getElementById("campus-map-svg");
+  if(!svg || !state.mapAddMode) return;
+  if(e.target!==svg && e.target.closest("svg")!==svg) return;
+  if(e.target.closest("[data-action]")) return;
+  const rect=svg.getBoundingClientRect();
+  const x=((e.clientX-rect.left)/rect.width)*100;
+  const y=((e.clientY-rect.top)/rect.height)*100;
+  state.pendingPin={x,y};
+  state.mapAddMode=false;
+  state.modal={type:"name-pin"};
+  render();
+});
+
+/* --------------------------------- boot ----------------------------------- */
+render();
+runChecks();
+setInterval(runChecks, 30000);
+</script>
+</body>
+</html>
