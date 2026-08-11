@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>Campus</title>
+<link rel="manifest" href="./manifest.json" />
+<link rel="apple-touch-icon" href="./icon-192.png" />
+<meta name="theme-color" content="#3B4B6B" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <style>
@@ -286,11 +289,10 @@ async function sendBlueBonnet(){
 function el(html){ const t=document.createElement("template"); t.innerHTML=html.trim(); return t.content.firstElementChild; }
 
 function BrandMarkSVG(size){
-  return `<svg width="${size}" height="${size}" viewBox="0 0 36 36" style="flex-shrink:0">
-    <rect width="36" height="36" rx="9" fill="#3B4B6B"/>
-    <line x1="9" y1="18" x2="27" y2="18" stroke="#F4C77A" stroke-width="2"/>
-    <line x1="18" y1="9" x2="18" y2="27" stroke="#F4C77A" stroke-width="2"/>
-    <circle cx="18" cy="18" r="3" fill="#FBFBF6"/>
+  return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" style="flex-shrink:0">
+    <rect x="1" y="1" width="98" height="98" rx="24" fill="#F4C77A"/>
+    <rect x="9" y="9" width="82" height="82" rx="19" fill="#3B4B6B"/>
+    <text x="50" y="51" font-family="'Fraunces', Georgia, serif" font-weight="700" font-size="16" fill="#FBFBF6" text-anchor="middle" dominant-baseline="central">Campus</text>
   </svg>`;
 }
 function RulerBarHTML(pct, status){
@@ -1376,6 +1378,9 @@ document.addEventListener("click", function(e){
 render();
 runChecks();
 setInterval(runChecks, 30000);
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
 </script>
 </body>
 </html>
