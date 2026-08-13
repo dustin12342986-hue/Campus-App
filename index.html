@@ -9,6 +9,9 @@
 <meta name="theme-color" content="#3B4B6B" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
   * { box-sizing: border-box; }
@@ -41,6 +44,12 @@ const SCHOOL_PRESETS = [
 ];
 // Set this to your real Blue Bonnet API endpoint. Left empty, the chat explains it isn't wired up yet.
 const BLUE_BONNET_ENDPOINT = "";
+// Fill in your own OAuth Client ID from Google Cloud Console to enable Drive sync.
+// Authorized JavaScript origin must exactly match your GitHub Pages URL (e.g. https://yourname.github.io).
+const GOOGLE_CLIENT_ID = "607694277453-t96d8mtknt9ceme8999dts6src0fre5l.apps.googleusercontent.com";
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+const DRIVE_DATA_FILENAME = "campus-data.json";
+const DRIVE_PROGRESS_FILENAME = "campus-progress.json";
 
 const inputStyle = "border:1px solid #D8DBCF;background:white;width:100%;";
 
@@ -161,12 +170,169 @@ let state = {
   bbMessages: [{role:"assistant", content:"Hi, I'm Blue Bonnet. Ask me about your classes, budget, or what's due soon."}],
   bbLoading: false,
   bbError: "",
+  bbDragOver: false,
+  bbFileProcessing: false,
+  bbFileError: "",
+  bbPendingClasses: null, // array of {name,days,start,end,location,include} awaiting confirmation
   safetyOpen: false, safetyEditing: false,
   supportOpen: false, supportEditing: false,
-  enrollChecklistOpen: null, // set on first render based on verification
+  enrollChecklistOpen: null,
+  driveConnected: false,
+  driveConnecting: false,
+  driveLastSynced: LS.get("campus-drive-last-synced", null),
+  driveError: "",
 };
 
-function persist(key, value){ LS.set(key, value); }
+/* ============================ Google Drive sync =========================== */
+let driveAccessToken = null;
+let driveTokenClient = null;
+let driveDataFileId = LS.get("campus-drive-data-fileid", null);
+let driveProgressFileId = LS.get("campus-drive-progress-fileid", null);
+let driveSaveTimer = null;
+
+const DRIVE_DATA_KEYS = [
+  "campus-enrollment","campus-profile","campus-classes","campus-pins","campus-events",
+  "campus-budget-cats","campus-budget-tx","campus-semester","campus-subscriptions",
+  "campus-splits","campus-dates","campus-assignments","campus-enrollment-checklist",
+  "campus-alerts","campus-safety-info","campus-support-info",
+];
+
+function driveReady(){ return !!(GOOGLE_CLIENT_ID && window.google && window.google.accounts && window.google.accounts.oauth2); }
+
+function initGoogleClient(){
+  if(!GOOGLE_CLIENT_ID) return;
+  const tryInit=()=>{
+    if(!driveReady()){ setTimeout(tryInit, 300); return; }
+    driveTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: DRIVE_SCOPE,
+      callback: onDriveToken,
+    });
+    // attempt a silent restore if we've connected before
+    if(LS.get("campus-drive-was-connected", false)){
+      try{ driveTokenClient.requestAccessToken({ prompt: "" }); }catch(e){}
+    }
+  };
+  tryInit();
+}
+function connectDrive(){
+  state.driveError="";
+  if(!GOOGLE_CLIENT_ID){ state.driveError="Google Drive isn't configured yet — add a GOOGLE_CLIENT_ID near the top of the script."; render(); return; }
+  if(!driveTokenClient){ state.driveError="Still loading Google's sign-in — try again in a second."; render(); return; }
+  state.driveConnecting=true; render();
+  driveTokenClient.requestAccessToken({ prompt: "consent" });
+}
+async function onDriveToken(resp){
+  state.driveConnecting=false;
+  if(resp.error){ state.driveError="Google Drive sign-in didn't complete — try again."; render(); return; }
+  driveAccessToken = resp.access_token;
+  state.driveConnected=true;
+  LS.set("campus-drive-was-connected", true);
+  state.driveError="";
+  await loadFromDrive();
+  render();
+}
+async function driveApi(url, options){
+  options=options||{};
+  options.headers = { ...(options.headers||{}), Authorization: `Bearer ${driveAccessToken}` };
+  const res = await fetch(url, options);
+  if(res.status===401){ state.driveConnected=false; driveAccessToken=null; throw new Error("Drive session expired — reconnect."); }
+  return res;
+}
+async function driveFindOrCreateFile(filename, cachedId, setCachedId){
+  if(cachedId){
+    const check = await driveApi(`https://www.googleapis.com/drive/v3/files/${cachedId}?fields=id,trashed`);
+    if(check.ok){ const meta=await check.json(); if(!meta.trashed) return cachedId; }
+  }
+  const search = await driveApi(`https://www.googleapis.com/drive/v3/files?q=name='${filename}'+and+trashed=false&spaces=drive&fields=files(id,name)`);
+  const searchData = await search.json();
+  if(searchData.files && searchData.files.length){ setCachedId(searchData.files[0].id); return searchData.files[0].id; }
+  const createRes = await driveApi("https://www.googleapis.com/drive/v3/files", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ name: filename, mimeType:"application/json" }),
+  });
+  const created = await createRes.json();
+  setCachedId(created.id);
+  return created.id;
+}
+async function loadFromDrive(){
+  if(!driveAccessToken) return;
+  try{
+    const id = await driveFindOrCreateFile(DRIVE_DATA_FILENAME, driveDataFileId, (fid)=>{ driveDataFileId=fid; LS.set("campus-drive-data-fileid", fid); });
+    const res = await driveApi(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`);
+    const text = await res.text();
+    if(text && text.trim()){
+      const remote = JSON.parse(text);
+      DRIVE_DATA_KEYS.forEach(key=>{
+        if(key in remote){
+          LS.set(key, remote[key]);
+          const stateKey = driveKeyToStateKey(key);
+          if(stateKey) state[stateKey]=remote[key];
+        }
+      });
+    }
+    state.driveLastSynced=new Date().toISOString();
+    LS.set("campus-drive-last-synced", state.driveLastSynced);
+  }catch(e){
+    state.driveError="Couldn't load your saved data from Drive — using what's on this device instead.";
+  }
+  render();
+}
+function driveKeyToStateKey(lsKey){
+  const map={
+    "campus-enrollment":"enrollment","campus-profile":"profile","campus-classes":"classes","campus-pins":"pins",
+    "campus-events":"events","campus-budget-cats":"budgetCats","campus-budget-tx":"budgetTx","campus-semester":"semester",
+    "campus-subscriptions":"subscriptions","campus-splits":"splits","campus-dates":"importantDates","campus-assignments":"assignments",
+    "campus-enrollment-checklist":"enrollChecklist","campus-alerts":"alerts","campus-safety-info":"safetyInfo","campus-support-info":"supportInfo",
+  };
+  return map[lsKey];
+}
+function buildProgressSummary(){
+  const done=state.enrollChecklist.filter(i=>i.done).length;
+  const discCats=state.budgetCats.filter(c=>c.discretionary);
+  const discSpent=discCats.reduce((s,c)=>s+spentFor(c.id),0);
+  const discLimit=discCats.reduce((s,c)=>s+c.weeklyLimit,0);
+  const pace=state.semester?computeSemesterPace(state.semester, state.budgetTx):null;
+  return {
+    lastUpdated: new Date().toISOString(),
+    school: state.enrollment?.school||null,
+    enrollmentStatus: isVerified()?"verified":"pending",
+    enrollmentChecklist: { done, total: state.enrollChecklist.length, percent: state.enrollChecklist.length?Math.round(done/state.enrollChecklist.length*100):0 },
+    discretionarySpendThisWeek: { spent: Math.round(discSpent*100)/100, limit: Math.round(discLimit*100)/100 },
+    semesterPace: pace ? { remaining: Math.round(pace.remaining*100)/100, weeklyAllowance: Math.round(pace.weeklyAllowance*100)/100, status: pace.status } : null,
+    assignmentsDueSoon: state.assignments.filter(a=>!a.done && daysUntil(a.dueDate)>=0 && daysUntil(a.dueDate)<=5).length,
+  };
+}
+function scheduleDriveSave(){
+  if(!state.driveConnected || !driveAccessToken) return;
+  clearTimeout(driveSaveTimer);
+  driveSaveTimer=setTimeout(saveToDrive, 1500);
+}
+async function saveToDrive(){
+  if(!driveAccessToken) return;
+  try{
+    const dataId = await driveFindOrCreateFile(DRIVE_DATA_FILENAME, driveDataFileId, (fid)=>{ driveDataFileId=fid; LS.set("campus-drive-data-fileid", fid); });
+    const payload={};
+    DRIVE_DATA_KEYS.forEach(key=>{ payload[key]=LS.get(key, null); });
+    await driveApi(`https://www.googleapis.com/upload/drive/v3/files/${dataId}?uploadType=media`, {
+      method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload),
+    });
+    const progressId = await driveFindOrCreateFile(DRIVE_PROGRESS_FILENAME, driveProgressFileId, (fid)=>{ driveProgressFileId=fid; LS.set("campus-drive-progress-fileid", fid); });
+    await driveApi(`https://www.googleapis.com/upload/drive/v3/files/${progressId}?uploadType=media`, {
+      method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(buildProgressSummary()),
+    });
+    state.driveLastSynced=new Date().toISOString();
+    LS.set("campus-drive-last-synced", state.driveLastSynced);
+    state.driveError="";
+  }catch(e){
+    state.driveError="Last save to Drive didn't go through — your data is still safe on this device.";
+  }
+  render();
+}
+
+
+function persist(key, value){ LS.set(key, value); if(DRIVE_DATA_KEYS.includes(key)) scheduleDriveSave(); }
 function isVerified(){ return !!(state.enrollment && state.enrollment.verified); }
 
 function tryVerify(email){
@@ -282,6 +448,119 @@ async function sendBlueBonnet(){
     state.bbError="Blue Bonnet couldn't respond right now — try again in a moment.";
   }
   state.bbLoading=false;
+  render();
+}
+
+/* ------------------------- syllabus drag & drop --------------------------- */
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js";
+}
+const SYLLABUS_ACCEPTED_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+  "image/png","image/jpeg","image/webp","image/heic",
+];
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(r.result.split(",")[1]);
+    r.onerror=()=>reject(new Error("Couldn't read file"));
+    r.readAsDataURL(file);
+  });
+}
+async function extractFileContent(file){
+  if(file.type==="application/pdf"){
+    const buf=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({ data: buf }).promise;
+    let text="";
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const content=await page.getTextContent();
+      text += content.items.map(it=>it.str).join(" ") + "\n";
+    }
+    return { type:"text", content:text };
+  }
+  if(file.type==="application/vnd.openxmlformats-officedocument.wordprocessingml.document"){
+    const buf=await file.arrayBuffer();
+    const result=await mammoth.extractRawText({ arrayBuffer: buf });
+    return { type:"text", content:result.value };
+  }
+  if(file.type==="text/plain"){
+    return { type:"text", content: await file.text() };
+  }
+  if(file.type.startsWith("image/")){
+    const b64=await fileToBase64(file);
+    return { type:"image", content:b64, mimeType:file.type };
+  }
+  throw new Error("Unsupported file type");
+}
+async function handleSyllabusFile(file){
+  if(!file) return;
+  state.bbDragOver=false;
+  if(!SYLLABUS_ACCEPTED_TYPES.includes(file.type)){
+    state.bbFileError="That file type isn't supported — try a PDF, Word doc, image, or plain text file.";
+    render(); return;
+  }
+  if(!BLUE_BONNET_ENDPOINT){
+    state.bbFileError="Blue Bonnet isn't wired up to a live endpoint yet, so it can't read files. Set BLUE_BONNET_ENDPOINT near the top of the script first.";
+    render(); return;
+  }
+  state.bbFileProcessing=true; state.bbFileError=""; state.bbPendingClasses=null;
+  state.bbMessages=[...state.bbMessages, {role:"user", content:`📎 ${file.name}`}];
+  render();
+  try{
+    const extracted=await extractFileContent(file);
+    const res=await fetch(BLUE_BONNET_ENDPOINT, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        task: "parse_syllabus",
+        fileType: extracted.type,
+        content: extracted.content,
+        mimeType: extracted.mimeType || null,
+      }),
+    });
+    const data=await res.json();
+    const classes = Array.isArray(data.classes) ? data.classes : [];
+    if(classes.length===0){
+      state.bbMessages=[...state.bbMessages, {role:"assistant", content: data.summary || "I couldn't find a clear class schedule in that file — you can still add classes manually on the Schedule tab."}];
+    }else{
+      state.bbPendingClasses = classes.map(c=>({
+        name: c.name||"Untitled class",
+        days: Array.isArray(c.days)?c.days:[],
+        start: c.start||"09:00",
+        end: c.end||"10:00",
+        location: c.location||"",
+        include: true,
+      }));
+      state.bbMessages=[...state.bbMessages, {role:"assistant", content: data.summary || `I found ${classes.length} class${classes.length>1?"es":""} in that syllabus — check them below and add the ones that look right.`}];
+    }
+  }catch(err){
+    state.bbFileError="Couldn't read or parse that file — try again, or add the class manually.";
+  }
+  state.bbFileProcessing=false;
+  render();
+}
+function confirmPendingClasses(){
+  if(!state.bbPendingClasses) return;
+  const toAdd = state.bbPendingClasses.filter(c=>c.include && c.name && c.days.length>0);
+  const dayMap={sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6};
+  toAdd.forEach((c,i)=>{
+    const days = c.days.map(d=>{
+      if(typeof d==="number") return d;
+      const key=String(d).slice(0,3).toLowerCase();
+      return dayMap[key] !== undefined ? dayMap[key] : null;
+    }).filter(d=>d!==null);
+    if(days.length===0) return;
+    state.classes=[...state.classes, {
+      id: uid(), name:c.name, days, start:c.start, end:c.end,
+      pinId:null, location:c.location||"", color: CLASS_COLORS[i % CLASS_COLORS.length],
+    }];
+  });
+  persist("campus-classes", state.classes);
+  state.bbMessages=[...state.bbMessages, {role:"assistant", content:`Added ${toAdd.length} class${toAdd.length!==1?"es":""} to the schedule.`}];
+  state.bbPendingClasses=null;
   render();
 }
 
@@ -570,6 +849,7 @@ function TodayTabHTML(){
     </div>
     ${CampusSafetyCardHTML()}
     ${CampusSupportCardHTML()}
+    ${DriveSyncCardHTML()}
   </div>`;
 }
 function SemesterPaceCardHTML(pace, total){
@@ -586,6 +866,22 @@ function SemesterPaceCardHTML(pace, total){
     <p class="text-xs mt-2" style="color:${pace.status==='ok'?'#1F7A5C':pace.status==='warn'?'#C77D2D':'#B4432F'}">
       ${ahead?`${fmtMoney(diff)} ahead of an even pace`:`${fmtMoney(diff)} behind an even pace`} · about ${fmtMoney(pace.weeklyAllowance)}/week to stay on track
     </p>
+  </div>`;
+}
+function DriveSyncCardHTML(){
+  return `<div class="rounded-xl p-4" style="${cardStyle()}">
+    <div class="flex items-center justify-between">
+      <span class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="cloud" style="width:13px;height:13px"></i> Cloud sync</span>
+      ${state.driveConnected?`<span class="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style="background:#E3E6DA;color:#1F7A5C"><i data-lucide="check" style="width:10px;height:10px"></i> Connected</span>`:""}
+    </div>
+    ${state.driveConnected?`
+      <p class="text-xs mt-2" style="color:#5B6470">${state.driveLastSynced?`Last synced ${new Date(state.driveLastSynced).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}`:"Not synced yet."}</p>
+      <button data-action="sync-now" class="text-xs mt-2 flex items-center gap-1" style="color:#3B4B6B"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Sync now</button>
+    `:`
+      <p class="text-xs mt-2 mb-2" style="color:#5B6470">Connect Google Drive so your data follows you across devices instead of staying on just this one.</p>
+      <button data-action="connect-drive" ${state.driveConnecting?"disabled":""} class="w-full py-2 rounded-xl text-sm flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="cloud" style="width:14px;height:14px"></i> ${state.driveConnecting?"Connecting…":"Connect Google Drive"}</button>
+    `}
+    ${state.driveError?`<p class="text-xs mt-2" style="color:#B4432F">${esc(state.driveError)}</p>`:""}
   </div>`;
 }
 function CampusSafetyCardHTML(){
@@ -1033,9 +1329,30 @@ function BlueBonnetFabHTML(){
     <i data-lucide="sparkles" style="width:22px;height:22px;color:white"></i>
   </button>`;
 }
+function PendingClassesCardHTML(){
+  if(!state.bbPendingClasses) return "";
+  return `<div class="rounded-xl p-3" style="background:#F2F3EB;border:1px solid #D8DBCF">
+    <p class="text-xs font-medium mb-2" style="color:#1B2430">Detected classes — uncheck any that aren't right</p>
+    <div class="space-y-2 mb-3">
+      ${state.bbPendingClasses.map((c,i)=>`<label class="flex items-start gap-2 text-xs">
+        <input type="checkbox" data-action="toggle-pending-class" data-idx="${i}" ${c.include?"checked":""} class="mt-0.5"/>
+        <span>
+          <span class="font-medium">${esc(c.name)}</span> —
+          ${c.days.length?c.days.map(d=>esc(String(d))).join("/"):"no days found"}
+          ${c.start&&c.end?` · ${esc(c.start)}–${esc(c.end)}`:""}
+          ${c.location?` · ${esc(c.location)}`:""}
+        </span>
+      </label>`).join("")}
+    </div>
+    <div class="flex gap-2">
+      <button data-action="confirm-pending-classes" class="flex-1 py-2 rounded-xl text-xs flex items-center justify-center gap-1" style="${primaryBtn()}"><i data-lucide="check" style="width:12px;height:12px"></i> Add to schedule</button>
+      <button data-action="cancel-pending-classes" class="px-3 py-2 rounded-xl text-xs" style="border:1px solid #D8DBCF;color:#5B6470">Discard</button>
+    </div>
+  </div>`;
+}
 function BlueBonnetModalHTML(){
   return `<div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style="background:rgba(27,36,48,.5);backdrop-filter:blur(2px)" data-action="close-bluebonnet">
-    <div class="modal-up w-full sm:max-w-sm flex flex-col rounded-t-xl sm:rounded-xl overflow-hidden" style="height:80vh;max-height:600px;background:#FBFBF6;box-shadow:0 -8px 30px rgba(27,36,48,.15),0 20px 40px -12px rgba(27,36,48,.25)" data-stop="1">
+    <div id="bb-panel" class="modal-up w-full sm:max-w-sm flex flex-col rounded-t-xl sm:rounded-xl overflow-hidden relative" style="height:80vh;max-height:600px;background:#FBFBF6;box-shadow:0 -8px 30px rgba(27,36,48,.15),0 20px 40px -12px rgba(27,36,48,.25)" data-stop="1">
       <div class="flex items-center justify-between p-4" style="border-bottom:1px solid #D8DBCF">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:#3B4B6B"><i data-lucide="sparkles" style="width:15px;height:15px;color:white"></i></div>
@@ -1048,11 +1365,23 @@ function BlueBonnetModalHTML(){
           <div class="rounded-xl px-3 py-2 text-sm" style="max-width:80%;background:${m.role==='user'?'#3B4B6B':'#F2F3EB'};color:${m.role==='user'?'white':'#1B2430'};white-space:pre-wrap">${esc(m.content)}</div>
         </div>`).join("")}
         ${state.bbLoading?`<div class="flex justify-start"><div class="rounded-xl px-3 py-2 text-sm" style="background:#F2F3EB;color:#5B6470">Thinking…</div></div>`:""}
+        ${state.bbFileProcessing?`<div class="flex justify-start"><div class="rounded-xl px-3 py-2 text-sm flex items-center gap-1.5" style="background:#F2F3EB;color:#5B6470"><i data-lucide="loader" style="width:13px;height:13px"></i> Reading file…</div></div>`:""}
+        ${state.bbPendingClasses?PendingClassesCardHTML():""}
         ${state.bbError?`<p class="text-xs" style="color:#B4432F">${esc(state.bbError)}</p>`:""}
+        ${state.bbFileError?`<p class="text-xs" style="color:#B4432F">${esc(state.bbFileError)}</p>`:""}
       </div>
-      <div class="p-3 flex gap-2" style="border-top:1px solid #D8DBCF">
-        <input id="bb-input" placeholder="Ask about your classes, budget, deadlines…" class="flex-1 px-3 py-2 rounded-xl text-sm" style="${inputStyle}" onkeydown="if(event.key==='Enter') window.__sendBB()"/>
-        <button data-action="send-bluebonnet" ${state.bbLoading?"disabled":""} class="px-3 rounded-xl flex items-center justify-center" style="background:#3B4B6B;color:white"><i data-lucide="send" style="width:16px;height:16px"></i></button>
+      ${state.bbDragOver?`<div class="absolute inset-0 flex items-center justify-center" style="background:rgba(59,75,107,0.9);z-index:10">
+        <div class="text-center text-white">
+          <i data-lucide="upload" style="width:32px;height:32px;margin:0 auto 8px"></i>
+          <p class="text-sm font-medium">Drop the syllabus here</p>
+          <p class="text-xs mt-1" style="opacity:.8">PDF, Word doc, image, or text file</p>
+        </div>
+      </div>`:""}
+      <div class="p-3 flex gap-2 items-center" style="border-top:1px solid #D8DBCF">
+        <input id="bb-file-input" type="file" accept=".pdf,.docx,.txt,image/*" class="hidden" onchange="window.__bbFileSelected(event)"/>
+        <button data-action="trigger-bb-file" class="p-2 rounded-xl flex-shrink-0" style="border:1px solid #D8DBCF;color:#3B4B6B" title="Attach a syllabus"><i data-lucide="paperclip" style="width:16px;height:16px"></i></button>
+        <input id="bb-input" placeholder="Ask, or drop a syllabus…" class="flex-1 px-3 py-2 rounded-xl text-sm" style="${inputStyle}" onkeydown="if(event.key==='Enter') window.__sendBB()"/>
+        <button data-action="send-bluebonnet" ${state.bbLoading?"disabled":""} class="px-3 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#3B4B6B;color:white"><i data-lucide="send" style="width:16px;height:16px"></i></button>
       </div>
     </div>
   </div>`;
@@ -1130,6 +1459,34 @@ window.__idFieldChanged=function(){
   state.draftProfile.studentId = document.getElementById("id-studentid").value;
 };
 window.__sendBB=function(){ sendBlueBonnet(); };
+window.__bbFileSelected=function(e){
+  const file=e.target.files[0];
+  if(file) handleSyllabusFile(file);
+  e.target.value="";
+};
+
+document.addEventListener("dragover", function(e){
+  const panel=document.getElementById("bb-panel");
+  if(!panel || !panel.contains(e.target)) return;
+  e.preventDefault();
+  if(!state.bbDragOver){ state.bbDragOver=true; render(); }
+});
+document.addEventListener("dragleave", function(e){
+  const panel=document.getElementById("bb-panel");
+  if(!panel) return;
+  if(e.target===panel || !panel.contains(e.relatedTarget)){
+    if(state.bbDragOver){ state.bbDragOver=false; render(); }
+  }
+});
+document.addEventListener("drop", function(e){
+  const panel=document.getElementById("bb-panel");
+  if(!panel || !panel.contains(e.target)) return;
+  e.preventDefault();
+  state.bbDragOver=false;
+  const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if(file) handleSyllabusFile(file);
+  else render();
+});
 
 document.addEventListener("click", function(e){
   const modalBg = e.target.closest('[data-action="close-modal"]');
@@ -1357,6 +1714,16 @@ document.addEventListener("click", function(e){
     case "sign-out": state.enrollment=null; persist("campus-enrollment", null); state.modal=null; render(); break;
 
     case "send-bluebonnet": sendBlueBonnet(); break;
+    case "connect-drive": connectDrive(); break;
+    case "sync-now": saveToDrive(); break;
+    case "trigger-bb-file": document.getElementById("bb-file-input").click(); break;
+    case "toggle-pending-class": {
+      const idx=Number(t.dataset.idx);
+      if(state.bbPendingClasses && state.bbPendingClasses[idx]) state.bbPendingClasses[idx].include = t.checked;
+      break;
+    }
+    case "confirm-pending-classes": confirmPendingClasses(); break;
+    case "cancel-pending-classes": state.bbPendingClasses=null; render(); break;
   }
 });
 
@@ -1378,6 +1745,7 @@ document.addEventListener("click", function(e){
 render();
 runChecks();
 setInterval(runChecks, 30000);
+initGoogleClient();
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
