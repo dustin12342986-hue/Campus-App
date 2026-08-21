@@ -196,7 +196,17 @@ const DRIVE_DATA_KEYS = [
   "campus-budget-cats","campus-budget-tx","campus-semester","campus-subscriptions",
   "campus-splits","campus-dates","campus-assignments","campus-enrollment-checklist",
   "campus-alerts","campus-safety-info","campus-support-info","campus-async-courses",
+  "campus-syllabus-import-done",
 ];
+function isChecklistKey(k){ return !!k && (k.indexOf("checklist-")===0 || k.indexOf("student-checklist-")===0); }
+function driveSyncKeys(){
+  const keys=[...DRIVE_DATA_KEYS];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(isChecklistKey(k) && keys.indexOf(k)===-1) keys.push(k);
+  }
+  return keys;
+}
 
 function driveReady(){ return !!(GOOGLE_CLIENT_ID && window.google && window.google.accounts && window.google.accounts.oauth2); }
 
@@ -265,8 +275,8 @@ async function loadFromDrive(){
     const text = await res.text();
     if(text && text.trim()){
       const remote = JSON.parse(text);
-      DRIVE_DATA_KEYS.forEach(key=>{
-        if(key in remote){
+      Object.keys(remote).forEach(key=>{
+        if(DRIVE_DATA_KEYS.indexOf(key)!==-1 || isChecklistKey(key)){
           LS.set(key, remote[key]);
           const stateKey = driveKeyToStateKey(key);
           if(stateKey) state[stateKey]=remote[key];
@@ -316,7 +326,7 @@ async function saveToDrive(){
   try{
     const dataId = await driveFindOrCreateFile(DRIVE_DATA_FILENAME, driveDataFileId, (fid)=>{ driveDataFileId=fid; LS.set("campus-drive-data-fileid", fid); });
     const payload={};
-    DRIVE_DATA_KEYS.forEach(key=>{ payload[key]=LS.get(key, null); });
+    driveSyncKeys().forEach(key=>{ payload[key]=LS.get(key, null); });
     await driveApi(`https://www.googleapis.com/upload/drive/v3/files/${dataId}?uploadType=media`, {
       method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload),
     });
@@ -334,7 +344,7 @@ async function saveToDrive(){
 }
 
 
-function persist(key, value){ LS.set(key, value); if(DRIVE_DATA_KEYS.includes(key)) scheduleDriveSave(); }
+function persist(key, value){ LS.set(key, value); if(DRIVE_DATA_KEYS.includes(key) || isChecklistKey(key)) scheduleDriveSave(); }
 function isVerified(){ return !!(state.enrollment && state.enrollment.verified); }
 
 function tryVerify(email){
@@ -851,6 +861,7 @@ function TodayTabHTML(){
     </div>
     ${CampusSafetyCardHTML()}
     ${CampusSupportCardHTML()}
+    ${SyllabusImportCardHTML()}
     ${DriveSyncCardHTML()}
   </div>`;
 }
@@ -869,6 +880,94 @@ function SemesterPaceCardHTML(pace, total){
       ${ahead?`${fmtMoney(diff)} ahead of an even pace`:`${fmtMoney(diff)} behind an even pace`} · about ${fmtMoney(pace.weeklyAllowance)}/week to stay on track
     </p>
   </div>`;
+}
+function SyllabusImportCardHTML(){
+  const done = LS.get("campus-syllabus-import-done", false);
+  return `<div class="rounded-xl p-4" style="${cardStyle()}">
+    <p class="text-xs uppercase tracking-wide mb-2 flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="file-text" style="width:13px;height:13px"></i> Fall 2026 syllabus import</p>
+    ${done?`
+      <p class="text-xs flex items-center gap-1.5" style="color:#1F7A5C"><i data-lucide="check" style="width:13px;height:13px"></i> Imported — Legal Research and Public Speaking are in the Schedule tab.</p>
+      <button data-action="run-syllabus-import" class="text-xs mt-2" style="color:#5B6470">Run again anyway (may create duplicates)</button>
+    `:`
+      <p class="text-xs mb-2" style="color:#5B6470">One tap adds Legal Research and Writing (LGLA 1301.5) and Public Speaking (SPCH 1315.29) — classes, dates, assignments, instructor info, and textbooks — straight from the syllabi already reviewed.</p>
+      <button data-action="run-syllabus-import" class="w-full py-2 rounded-xl text-sm flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="download" style="width:14px;height:14px"></i> Import Fall 2026 schedule</button>
+    `}
+  </div>`;
+}
+function runSyllabusImport(){
+  function checklistKey(name){ return `checklist-${name.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,80)}`; }
+
+  state.classes = [...state.classes, {
+    id: uid(), name: "Legal Research and Writing (LGLA 1301.5)", days: [3],
+    start: "18:00", end: "20:50", pinId: null,
+    location: "Synchronous Online (Zoom) — El Centro Campus A959 office", color: "#1F7A5C",
+  }];
+  persist("campus-classes", state.classes);
+
+  const legalKey = checklistKey("Legal Research and Writing (LGLA 1301.5)");
+  const legalChecklist = LS.get(legalKey, []);
+  legalChecklist.push(
+    { id: uid(), text: "Instructor: Gitanjali Deb — g.deb@DallasCollege.edu", done:false },
+    { id: uid(), text: "Office hours: Monday 9:30 AM–2:30 PM, El Centro Campus A959", done:false },
+    { id: uid(), text: "Text: Legal Research and Writing for Paralegals (Bouchoux, 10th ed., ISBN 9781543846874)", done:false },
+    { id: uid(), text: "Text: Write.law Legal Research and Legal Writing (1st ed., ISBN 9798886145113)", done:false },
+    { id: uid(), text: "Late work: needs a Motion for Late Assignment submitted through eCampus within 3 days — email submissions aren't accepted", done:false },
+    { id: uid(), text: "Attendance: live Zoom, must type name in chat to be marked present — 5+ absences = automatic fail", done:false },
+    { id: uid(), text: "AI POLICY: no AI tools (ChatGPT, Claude, Gemini, Copilot, etc.) allowed on assignments/exams unless explicitly stated", done:false }
+  );
+  persist(legalKey, legalChecklist);
+
+  state.asyncCourses = [...state.asyncCourses, {
+    id: uid(), name: "Public Speaking (SPCH 1315.29)",
+    instructor: "Milena Williams — MWILLIAMS7@DallasCollege.edu",
+    officeHours: "As requested (email to arrange)",
+    textbook: "A Pocket Guide to Public Speaking, 7th ed. (Rubenstein, ISBN 9781319495848)",
+  }];
+  persist("campus-async-courses", state.asyncCourses);
+
+  const psKey = checklistKey("Public Speaking (SPCH 1315.29)");
+  const psChecklist = LS.get(psKey, []);
+  psChecklist.push(
+    { id: uid(), text: "8 discussions (25 pts each), 5 quizzes (30 pts each) — no fixed due dates given, check eCampus weekly", done:false },
+    { id: uid(), text: "Speech Self-Assessment (100 pts), Speech Topic Proposal (100 pts)", done:false },
+    { id: uid(), text: "Informative Speech, 5–6 min recorded (200 pts)", done:false },
+    { id: uid(), text: "Persuasive Speech, Final, 6–8 min recorded (250 pts)", done:false }
+  );
+  persist(psKey, psChecklist);
+
+  state.importantDates = [...state.importantDates,
+    { id: uid(), label: "Public Speaking (SPCH 1315.29) — Certification Date", date: "2026-08-31" },
+    { id: uid(), label: "Public Speaking (SPCH 1315.29) — Withdraw Date", date: "2026-09-30" },
+    { id: uid(), label: "Public Speaking (SPCH 1315.29) — Course Ends (syllabus lists both 10/15 and 10/17 — confirm with instructor)", date: "2026-10-15" },
+    { id: uid(), label: "Legal Research (LGLA 1301.5) — Certification Date", date: "2026-09-08" },
+    { id: uid(), label: "Legal Research (LGLA 1301.5) — Withdraw Date", date: "2026-11-12" },
+    { id: uid(), label: "Legal Research (LGLA 1301.5) — Course Ends", date: "2026-12-10" },
+  ];
+  persist("campus-dates", state.importantDates);
+
+  const legalResearchDue = [
+    ["Wk1: Course policy quiz/memo, Intro memo", "2026-08-30"],
+    ["Wk2: Write.Law Welcome + fundamentals, Reading quiz ch1-2", "2026-09-06"],
+    ["Wk3: Write.Law Advanced research + citations, Reading quiz ch3-4", "2026-09-13"],
+    ["Wk4: Write.Law lab day (legal research certificate)", "2026-09-20"],
+    ["Wk5: Write.Law Document basics/IRAC + persuasive writing", "2026-09-27"],
+    ["Wk6: Write.Law Writing principles, Reading quiz ch5-7", "2026-10-04"],
+    ["Wk7: Write.Law Punctuating/Precision/Words & Phrases", "2026-10-11"],
+    ["Wk8: MID-TERM EXAM (chapters 1-7)", "2026-10-18"],
+    ["Wk9: Write.Law Writing mechanics/Editing", "2026-10-25"],
+    ["Wk10: Write.Law Advanced legal analysis, Reading quiz ch8", "2026-11-01"],
+    ["Wk11: FastCase memo, Reading quiz ch11-12", "2026-11-08"],
+    ["Wk12: Write.Law Writing about facts, Reading quiz ch14-15", "2026-11-15"],
+    ["Wk13: Written correspondence memo, Reading quiz ch17+19 (extra credit)", "2026-11-22"],
+    ["Wk15: FINAL EXAM (ch 1-19) — ALL WORK DUE, last call", "2026-12-06"],
+  ];
+  legalResearchDue.forEach(([title,dueDate])=>{
+    state.assignments.push({ id: uid(), title: "LGLA 1301.5: "+title, dueDate, done:false });
+  });
+  persist("campus-assignments", state.assignments);
+
+  persist("campus-syllabus-import-done", true);
+  render();
 }
 function DriveSyncCardHTML(){
   return `<div class="rounded-xl p-4" style="${cardStyle()}">
@@ -1467,7 +1566,7 @@ window.__addChecklistItem=function(key){
   if(!inp || !inp.value.trim()) return;
   const items=LS.get(key, []);
   items.push({id:uid(), text:inp.value.trim(), done:false});
-  LS.set(key, items);
+  persist(key, items);
   render();
 };
 window.__handleIdPhoto=function(e){
@@ -1603,12 +1702,12 @@ document.addEventListener("click", function(e){
     case "toggle-checklist-item": {
       const key=t.dataset.key, id=t.dataset.id;
       const items=LS.get(key, []).map(x=>x.id===id?{...x,done:!x.done}:x);
-      LS.set(key, items); render(); break;
+      persist(key, items); render(); break;
     }
     case "delete-checklist-item": {
       const key=t.dataset.key, id=t.dataset.id;
       const items=LS.get(key, []).filter(x=>x.id!==id);
-      LS.set(key, items); render(); break;
+      persist(key, items); render(); break;
     }
     case "add-checklist-item": window.__addChecklistItem(t.dataset.key); break;
 
@@ -1768,6 +1867,7 @@ document.addEventListener("click", function(e){
     case "send-bluebonnet": sendBlueBonnet(); break;
     case "connect-drive": connectDrive(); break;
     case "sync-now": saveToDrive(); break;
+    case "run-syllabus-import": runSyllabusImport(); break;
     case "trigger-bb-file": document.getElementById("bb-file-input").click(); break;
     case "toggle-pending-class": {
       const idx=Number(t.dataset.idx);
@@ -1794,6 +1894,11 @@ document.addEventListener("click", function(e){
 });
 
 /* --------------------------------- boot ----------------------------------- */
+// Fall 2026 syllabi ship with the app: load them automatically on first open,
+// on every device, with no tap required.
+if(!LS.get("campus-syllabus-import-done", false)){
+  try{ runSyllabusImport(); }catch(e){}
+}
 render();
 runChecks();
 setInterval(runChecks, 30000);
