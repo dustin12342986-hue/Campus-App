@@ -154,6 +154,7 @@ let state = {
   splits: LS.get("campus-splits", []),
   importantDates: LS.get("campus-dates", []),
   assignments: LS.get("campus-assignments", []),
+  asyncCourses: LS.get("campus-async-courses", []),
   enrollChecklist: LS.get("campus-enrollment-checklist", DEFAULT_ENROLL_STEPS.map(text=>({id:uid(), text, done:false}))),
   alerts: LS.get("campus-alerts", []),
   safetyInfo: LS.get("campus-safety-info", { safetyNumber:"", escortNumber:"" }),
@@ -194,7 +195,7 @@ const DRIVE_DATA_KEYS = [
   "campus-enrollment","campus-profile","campus-classes","campus-pins","campus-events",
   "campus-budget-cats","campus-budget-tx","campus-semester","campus-subscriptions",
   "campus-splits","campus-dates","campus-assignments","campus-enrollment-checklist",
-  "campus-alerts","campus-safety-info","campus-support-info",
+  "campus-alerts","campus-safety-info","campus-support-info","campus-async-courses",
 ];
 
 function driveReady(){ return !!(GOOGLE_CLIENT_ID && window.google && window.google.accounts && window.google.accounts.oauth2); }
@@ -285,6 +286,7 @@ function driveKeyToStateKey(lsKey){
     "campus-events":"events","campus-budget-cats":"budgetCats","campus-budget-tx":"budgetTx","campus-semester":"semester",
     "campus-subscriptions":"subscriptions","campus-splits":"splits","campus-dates":"importantDates","campus-assignments":"assignments",
     "campus-enrollment-checklist":"enrollChecklist","campus-alerts":"alerts","campus-safety-info":"safetyInfo","campus-support-info":"supportInfo",
+    "campus-async-courses":"asyncCourses",
   };
   return map[lsKey];
 }
@@ -966,6 +968,37 @@ function ScheduleTabHTML(){
 
     <div class="rounded-xl p-3.5 mb-4" style="${cardStyle()}">
       <div class="flex items-center justify-between mb-2">
+        <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="laptop" style="width:12px;height:12px"></i> Online / self-paced courses</p>
+        <button data-action="open-modal" data-modal="add-async" class="text-xs px-2 py-1 rounded-xl flex items-center gap-1" style="border:1px solid #3B4B6B;color:#3B4B6B"><i data-lucide="plus" style="width:11px;height:11px"></i> Add</button>
+      </div>
+      <p class="text-[10px] mb-2" style="color:#9098A0">For courses with no set weekly meeting time — instructor contact, textbooks, and a checklist live here instead of the daily schedule.</p>
+      ${state.asyncCourses.length===0?`<p class="text-xs" style="color:#5B6470">No self-paced courses added yet.</p>`:""}
+      <div class="space-y-2">
+        ${state.asyncCourses.map(ac=>{
+          const openCk=state.openChecklist===("async-"+ac.id);
+          return `<div class="rounded-xl p-3" style="background:#F2F3EB">
+            <div class="flex items-start justify-between">
+              <div>
+                <p style="font-family:'Fraunces',serif;font-weight:600" class="text-sm">${esc(ac.name)}</p>
+                ${ac.instructor?`<p class="text-xs mt-0.5" style="color:#5B6470">Instructor: ${esc(ac.instructor)}</p>`:""}
+                ${ac.officeHours?`<p class="text-xs" style="color:#5B6470">Office hours: ${esc(ac.officeHours)}</p>`:""}
+                ${ac.textbook?`<p class="text-xs" style="color:#5B6470">Text: ${esc(ac.textbook)}</p>`:""}
+              </div>
+              <button data-action="delete-async" data-id="${ac.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:#B0B4A6"></i></button>
+            </div>
+            ${isVerified()?`
+              <button data-action="toggle-async-checklist" data-id="${ac.id}" class="flex items-center gap-1 text-xs mt-2" style="color:#3B4B6B">
+                <i data-lucide="list-checks" style="width:12px;height:12px"></i> Class checklist <i data-lucide="${openCk?'chevron-up':'chevron-down'}" style="width:12px;height:12px"></i>
+              </button>
+              ${openCk?ChecklistPanelHTML(classChecklistKey(ac.name), false):""}
+            `:`<p class="flex items-center gap-1 text-xs mt-2" style="color:#9098A0"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Class checklist — verify enrollment to unlock</p>`}
+          </div>`;
+        }).join("")}
+      </div>
+    </div>
+
+    <div class="rounded-xl p-3.5 mb-4" style="${cardStyle()}">
+      <div class="flex items-center justify-between mb-2">
         <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Assignments</p>
         <button data-action="open-modal" data-modal="add-assignment" class="text-xs px-2 py-1 rounded-xl flex items-center gap-1" style="border:1px solid #3B4B6B;color:#3B4B6B"><i data-lucide="plus" style="width:11px;height:11px"></i> Add</button>
       </div>
@@ -1193,6 +1226,13 @@ function ModalsHTML(){
     <button data-action="submit-add-assignment" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Add assignment</button>
   `);
   if(m.type==="add-class") return AddClassModalHTML();
+  if(m.type==="add-async") return ModalWrap("Add online / self-paced course", `
+    ${fieldHtml("Course name", `<input id="ac-name" placeholder="e.g. Public Speaking (SPCH 1315.29)" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    ${fieldHtml("Instructor (optional)", `<input id="ac-instructor" placeholder="e.g. Milena Williams (email)" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    ${fieldHtml("Office hours (optional)", `<input id="ac-office" placeholder="e.g. As requested" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    ${fieldHtml("Required textbook (optional)", `<input id="ac-textbook" placeholder="e.g. A Pocket Guide to Public Speaking" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
+    <button data-action="submit-add-async" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Add course</button>
+  `);
   if(m.type==="add-category") return ModalWrap("New category", `
     ${fieldHtml("Name", `<input id="mc-name" placeholder="e.g. Subscriptions" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
     ${fieldHtml("Weekly limit", `<input id="mc-limit" type="number" placeholder="0.00" class="px-3 py-2 rounded-xl" style="${inputStyle};font-family:'IBM Plex Mono',monospace"/>`)}
@@ -1540,6 +1580,18 @@ document.addEventListener("click", function(e){
     case "set-schedule-day": state.scheduleDay=Number(t.dataset.day); render(); break;
     case "toggle-class-checklist": state.openChecklist = state.openChecklist===t.dataset.id?null:t.dataset.id; render(); break;
     case "delete-class": state.classes=state.classes.filter(c=>c.id!==t.dataset.id); persist("campus-classes", state.classes); render(); break;
+    case "toggle-async-checklist": { const key="async-"+t.dataset.id; state.openChecklist = state.openChecklist===key?null:key; render(); break; }
+    case "delete-async": state.asyncCourses=state.asyncCourses.filter(a=>a.id!==t.dataset.id); persist("campus-async-courses", state.asyncCourses); render(); break;
+    case "submit-add-async": {
+      const name=document.getElementById("ac-name").value.trim();
+      if(!name) return;
+      const instructor=document.getElementById("ac-instructor").value.trim();
+      const officeHours=document.getElementById("ac-office").value.trim();
+      const textbook=document.getElementById("ac-textbook").value.trim();
+      state.asyncCourses=[...state.asyncCourses, { id:uid(), name, instructor, officeHours, textbook }];
+      persist("campus-async-courses", state.asyncCourses);
+      state.modal=null; render(); break;
+    }
     case "delete-date": state.importantDates=state.importantDates.filter(d=>d.id!==t.dataset.id); persist("campus-dates", state.importantDates); render(); break;
     case "toggle-assignment": {
       const id=t.dataset.id;
