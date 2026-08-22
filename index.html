@@ -6,7 +6,7 @@
 <title>Campus</title>
 <link rel="manifest" href="./manifest.json" />
 <link rel="apple-touch-icon" href="./icon-192.png" />
-<meta name="theme-color" content="#3B4B6B" />
+<meta name="theme-color" content="var(--accent)" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -15,12 +15,56 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
   * { box-sizing: border-box; }
-  html, body { margin:0; padding:0; background: linear-gradient(180deg, #F1F3E9 0%, #E9ECE0 60%, #E4E7DA 100%); color:#1B2430; font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
+
+:root, [data-theme="warm"]{
+  --bg1:#F1F3E9; --bg2:#E9ECE0; --bg2b:#EEF0E6; --bg3:#E4E7DA;
+  --card:#FBFBF6; --surface:#F2F3EB; --chip:#E3E6DA;
+  --border:#D8DBCF; --border2:#C3C7B8;
+  --text:#1B2430; --muted:#5B6470; --faint:#9098A0; --faint2:#B0B4A6;
+  --accent:#3B4B6B; --accent-dk:#2E3C57; --highlight:#F4C77A;
+  --ok:#1F7A5C; --ok-lt:#279470; --warn:#C77D2D; --warn-lt:#D99447;
+  --over:#B4432F; --over-lt:#C85843; --cat1:#6B4B8A; --cat2:#4B7A8A;
+  --shadow-a:0 1px 2px rgba(27,36,48,0.04),0 4px 14px -4px rgba(27,36,48,0.08);
+}
+[data-theme="night"]{
+  --bg1:#12161C; --bg2:#161B22; --bg2b:#171D25; --bg3:#1A2029;
+  --card:#1C232C; --surface:#232B35; --chip:#2A3340;
+  --border:#2F3945; --border2:#3A4552;
+  --text:#E8EBEF; --muted:#A2ACB8; --faint:#7E8894; --faint2:#68727E;
+  --accent:#8AA4D6; --accent-dk:#A9BEE6; --highlight:#F4C77A;
+  --ok:#5FC79E; --ok-lt:#74D4AD; --warn:#E0A05A; --warn-lt:#EDB472;
+  --over:#E58370; --over-lt:#F09883; --cat1:#B295D6; --cat2:#84B4C6;
+  --shadow-a:0 1px 2px rgba(0,0,0,0.25),0 4px 14px -4px rgba(0,0,0,0.4);
+}
+[data-theme="plain"]{
+  --bg1:#FFFFFF; --bg2:#FFFFFF; --bg2b:#FFFFFF; --bg3:#FFFFFF;
+  --card:#FFFFFF; --surface:#F4F4F4; --chip:#ECECEC;
+  --border:#CFCFCF; --border2:#BFBFBF;
+  --text:#1A1A1A; --muted:#5A5A5A; --faint:#7A7A7A; --faint2:#9A9A9A;
+  --accent:#3A3A3A; --accent-dk:#222222; --highlight:#BDBDBD;
+  --ok:#3A3A3A; --ok-lt:#4A4A4A; --warn:#5A5A5A; --warn-lt:#6A6A6A;
+  --over:#7A2E22; --over-lt:#8A3A2C; --cat1:#4A4A4A; --cat2:#5A5A5A;
+  --shadow-a:none;
+}
+[data-theme="plain"] *{ box-shadow:none !important; }
+  /* Calmer reading defaults: bigger base type, generous line height,
+     nothing centred or justified, no motion unless the OS allows it. */
+  html { font-size:17px; }
+  body { line-height:1.65; letter-spacing:0.005em; }
+  p, span, label, li { text-align:left; }
+  button { min-height:44px; text-align:left; }
+  button.icon-only { min-height:0; }
+  .text-xs { font-size:0.82rem !important; line-height:1.6 !important; }
+  .text-sm { font-size:0.94rem !important; line-height:1.6 !important; }
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after { animation:none !important; transition:none !important; }
+  }
+  html, body { margin:0; padding:0; background: linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 60%, var(--bg3) 100%); transition:background .2s ease; color:var(--text); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
   button { font-family:inherit; cursor:pointer; border:none; transition: transform .12s ease, box-shadow .15s ease, opacity .15s ease, background .15s ease; background:none; }
   button:active:not(:disabled) { transform: scale(0.96); }
   button:disabled { opacity:0.4; cursor:default; }
   input, select { font-family:inherit; transition: box-shadow .15s ease, border-color .15s ease; }
-  input:focus, select:focus { outline:none; box-shadow:0 0 0 3px rgba(59,75,107,0.15); border-color:#3B4B6B !important; }
+  input:focus, select:focus { outline:none; box-shadow:0 0 0 3px rgba(59,75,107,0.15); border-color:var(--accent) !important; }
   @keyframes fadeSlideUp { from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
   .fade-in { animation: fadeSlideUp .28s ease both; }
   @keyframes modalUp { from{opacity:0; transform:translateY(24px);} to{opacity:1; transform:translateY(0);} }
@@ -33,11 +77,11 @@
 
 <script>
 /* =========================== constants & tokens ===========================
-  bg gradient sage/paper | card #FBFBF6 | ink #1B2430 | soft #5B6470 | line #D8DBCF
-  accent #3B4B6B | ok #1F7A5C | warn #C77D2D | over #B4432F | gold #F4C77A
+  bg gradient sage/paper | card var(--card) | ink var(--text) | soft var(--muted) | line var(--border)
+  accent var(--accent) | ok var(--ok) | warn var(--warn) | over var(--over) | gold var(--highlight)
 ============================================================================ */
 const DAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const CLASS_COLORS = ["#3B4B6B","#1F7A5C","#C77D2D","#B4432F","#6B4B8A","#4B7A8A"];
+const CLASS_COLORS = ["var(--accent)","var(--ok)","var(--warn)","var(--over)","var(--cat1)","var(--cat2)"];
 const SCHOOL_PRESETS = [
   { name: "Dallas College – North Lake Campus", domains: ["student.dcccd.edu","student.dallascollege.edu"] },
   { name: "Lone Star Test University (fake — for testing)", domains: ["student.lonestartest.edu"] },
@@ -48,13 +92,39 @@ const BLUE_BONNET_ENDPOINT = "";
 // Authorized JavaScript origin must exactly match your GitHub Pages URL (e.g. https://yourname.github.io).
 const GOOGLE_CLIENT_ID = "607694277453-t96d8mtknt9ceme8999dts6src0fre5l.apps.googleusercontent.com";
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+// app.created = this app can only see and edit calendars it made itself.
+// It cannot read, write to, or interfere with any other calendar on the account.
+const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.app.created";
+const COLLEGE_CAL_NAME = "College";
+const CAL_TZ = "America/Chicago";
 const DRIVE_DATA_FILENAME = "campus-data.json";
 const DRIVE_PROGRESS_FILENAME = "campus-progress.json";
 
-const inputStyle = "border:1px solid #D8DBCF;background:white;width:100%;";
+const inputStyle = "border:1px solid var(--border);background:white;width:100%;";
 
 function uid(){ return Math.random().toString(36).slice(2,10); }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function shortClassName(name){
+  if(!name) return "";
+  return name.replace(/\s*\([^)]*\)\s*$/,"").trim() || name;
+}
+function courseCodeOf(name){
+  const m=(name||"").match(/\(([^)]*)\)\s*$/);
+  return m?m[1].trim():"";
+}
+// Strip a leading course code from an assignment title: "LGLA 1301.5: Wk1: x" -> "Wk1: x"
+function cleanAssignmentTitle(title){
+  return (title||"").replace(/^\s*[A-Z]{2,5}\s*\d{3,4}(?:\.\d+)?\s*:\s*/,"").trim() || title;
+}
+// Which class does this assignment belong to?
+function classOfAssignment(a){
+  if(a.classId){ const c=state.classes.find(c=>c.id===a.classId); if(c) return c; }
+  const t=(a.title||"");
+  return state.classes.find(c=>{
+    const code=courseCodeOf(c.name);
+    return (code && t.indexOf(code)!==-1) || t.indexOf(shortClassName(c.name))!==-1;
+  }) || null;
+}
 function classChecklistKey(name){ return `checklist-${name.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,80)}`; }
 function schoolChecklistKey(school){ return `student-checklist-${school.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,80)}`; }
 function isAllowedEmail(email, school){
@@ -109,9 +179,9 @@ function walkMinutes(pinA,pinB){
   return Math.max(1, Math.ceil(Math.sqrt(dx*dx+dy*dy)/WALK_FT_PER_MIN));
 }
 function statusFor(pct){ if(pct>=100) return "over"; if(pct>=75) return "warn"; return "ok"; }
-const STATUS_COLOR={ok:"#1F7A5C",warn:"#C77D2D",over:"#B4432F"};
-const STATUS_LABEL={ok:"On track",warn:"Near limit",over:"Over limit"};
-const LEVEL_COLOR={info:"#3B4B6B",warn:"#C77D2D",over:"#B4432F"};
+const STATUS_COLOR={ok:"var(--ok)",warn:"var(--warn)",over:"var(--over)"};
+const STATUS_LABEL={ok:"On track",warn:"Near limit",over:"Past the limit"};
+const LEVEL_COLOR={info:"var(--accent)",warn:"var(--warn)",over:"var(--over)"};
 const LEVEL_ICON={info:"clock",warn:"footprints",over:"alert-triangle"};
 
 /* =============================== storage =============================== */
@@ -157,6 +227,17 @@ let state = {
   asyncCourses: LS.get("campus-async-courses", []),
   enrollChecklist: LS.get("campus-enrollment-checklist", DEFAULT_ENROLL_STEPS.map(text=>({id:uid(), text, done:false}))),
   alerts: LS.get("campus-alerts", []),
+  theme: LS.get("campus-theme", "warm"),
+  openAssignGroup: null,
+  legendOpen: false,
+  dfwOpen: false,
+  openClassCard: null,
+  classShowAll: {},
+  calPushing: false,
+  calError: "",
+  calSummary: "",
+  calLastPush: LS.get("campus-calendar-last-push", null),
+  expandedGroups: {},
   safetyInfo: LS.get("campus-safety-info", { safetyNumber:"", escortNumber:"" }),
   supportInfo: LS.get("campus-support-info", { center:"", number:"" }),
   // ephemeral UI state (not persisted)
@@ -196,7 +277,7 @@ const DRIVE_DATA_KEYS = [
   "campus-budget-cats","campus-budget-tx","campus-semester","campus-subscriptions",
   "campus-splits","campus-dates","campus-assignments","campus-enrollment-checklist",
   "campus-alerts","campus-safety-info","campus-support-info","campus-async-courses",
-  "campus-syllabus-import-done",
+  "campus-syllabus-import-done","campus-theme",
 ];
 function isChecklistKey(k){ return !!k && (k.indexOf("checklist-")===0 || k.indexOf("student-checklist-")===0); }
 function driveSyncKeys(){
@@ -216,7 +297,7 @@ function initGoogleClient(){
     if(!driveReady()){ setTimeout(tryInit, 300); return; }
     driveTokenClient = google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
-      scope: DRIVE_SCOPE,
+      scope: DRIVE_SCOPE + " " + CALENDAR_SCOPE,
       callback: onDriveToken,
     });
     // attempt a silent restore if we've connected before
@@ -298,7 +379,7 @@ function driveKeyToStateKey(lsKey){
     "campus-events":"events","campus-budget-cats":"budgetCats","campus-budget-tx":"budgetTx","campus-semester":"semester",
     "campus-subscriptions":"subscriptions","campus-splits":"splits","campus-dates":"importantDates","campus-assignments":"assignments",
     "campus-enrollment-checklist":"enrollChecklist","campus-alerts":"alerts","campus-safety-info":"safetyInfo","campus-support-info":"supportInfo",
-    "campus-async-courses":"asyncCourses",
+    "campus-async-courses":"asyncCourses","campus-theme":"theme",
   };
   return map[lsKey];
 }
@@ -344,6 +425,8 @@ async function saveToDrive(){
   }
   render();
 }
+// nav bar background needs to follow the theme too
+
 
 
 function persist(key, value){ LS.set(key, value); if(DRIVE_DATA_KEYS.includes(key) || isChecklistKey(key)) scheduleDriveSave(); }
@@ -358,9 +441,11 @@ function tryVerify(email){
 
 /* ============================ alert engine =============================== */
 const alertedKeys = new Set();
+let alertsChanged=false;
 function pushAlert(key, message, level){
   if(alertedKeys.has(key)) return;
   alertedKeys.add(key);
+  alertsChanged=true;
   state.alerts = [{id:uid(), message, level, timestamp:new Date().toISOString()}, ...state.alerts].slice(0,60);
   persist("campus-alerts", state.alerts);
 }
@@ -414,7 +499,7 @@ function runChecks(){
       pushAlert(`assign-${a.id}-${a.dueDate}`, `${a.title} is due ${away===0?"today":`in ${away} day${away>1?"s":""}`}.`, away===0?"over":"warn");
     }
   });
-  render();
+  if(alertsChanged){ alertsChanged=false; render(); }
 }
 
 /* ============================ Blue Bonnet context ========================= */
@@ -583,15 +668,15 @@ function el(html){ const t=document.createElement("template"); t.innerHTML=html.
 
 function BrandMarkSVG(size){
   return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" style="flex-shrink:0">
-    <rect x="1" y="1" width="98" height="98" rx="24" fill="#F4C77A"/>
-    <rect x="9" y="9" width="82" height="82" rx="19" fill="#3B4B6B"/>
-    <text x="50" y="51" font-family="'Fraunces', Georgia, serif" font-weight="700" font-size="16" fill="#FBFBF6" text-anchor="middle" dominant-baseline="central">Campus</text>
+    <rect x="1" y="1" width="98" height="98" rx="24" fill="var(--highlight)"/>
+    <rect x="9" y="9" width="82" height="82" rx="19" fill="var(--accent)"/>
+    <text x="50" y="51" font-family="'Fraunces', Georgia, serif" font-weight="700" font-size="16" fill="var(--card)" text-anchor="middle" dominant-baseline="central">Campus</text>
   </svg>`;
 }
 function RulerBarHTML(pct, status){
   const fillWidth=Math.min(pct,100);
-  const gradients={ok:"linear-gradient(90deg,#1F7A5C,#279470)",warn:"linear-gradient(90deg,#C77D2D,#D99447)",over:"linear-gradient(90deg,#B4432F,#C85843)"};
-  return `<div class="relative w-full h-3 rounded-full overflow-hidden" style="background:#E3E6DA;box-shadow:inset 0 1px 2px rgba(27,36,48,0.08)">
+  const gradients={ok:"linear-gradient(90deg,var(--ok),var(--ok-lt))",warn:"linear-gradient(90deg,var(--warn),var(--warn-lt))",over:"linear-gradient(90deg,var(--over),var(--over-lt))"};
+  return `<div class="relative w-full h-3 rounded-full overflow-hidden" style="background:var(--chip);box-shadow:inset 0 1px 2px rgba(27,36,48,0.08)">
     <div class="h-3 rounded-full transition-all duration-500 ease-out" style="width:${fillWidth}%;background:${gradients[status]};${fillWidth>3?'box-shadow:0 0 6px rgba(27,36,48,0.15)':''}"></div>
     <div class="absolute top-0 h-3" style="left:75%;width:1px;background:rgba(27,36,48,0.3)"></div>
     ${pct>100?`<div class="absolute -top-1 h-5 w-1.5 rounded-full" style="left:calc(100% - 3px);background:${STATUS_COLOR.over};box-shadow:0 1px 3px rgba(27,36,48,0.3)"></div>`:""}
@@ -601,63 +686,63 @@ function RadialRingHTML(pct, status, size, innerHtml){
   const stroke=7, r=(size-stroke)/2, c=2*Math.PI*r, clamped=Math.min(pct,100);
   return `<div class="relative flex-shrink-0" style="width:${size}px;height:${size}px">
     <svg width="${size}" height="${size}" style="transform:rotate(-90deg)">
-      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#E3E6DA" stroke-width="${stroke}"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--chip)" stroke-width="${stroke}"/>
       <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${STATUS_COLOR[status]}" stroke-width="${stroke}"
         stroke-dasharray="${c}" stroke-dashoffset="${c-(clamped/100)*c}" stroke-linecap="round" style="transition:stroke-dashoffset .6s ease-out"/>
     </svg>
     <div class="absolute inset-0 flex items-center justify-center">${innerHtml}</div>
   </div>`;
 }
-function cardStyle(extra){ return `background:#FBFBF6;border:1px solid #D8DBCF;box-shadow:0 1px 2px rgba(27,36,48,0.04),0 4px 14px -4px rgba(27,36,48,0.08);${extra||""}`; }
-function heroCardStyle(){ return `background:#FBFBF6;border:1px solid #D8DBCF;border-top:3px dashed #C3C7B8;box-shadow:0 2px 4px rgba(27,36,48,0.05),0 10px 24px -8px rgba(59,75,107,0.18);`; }
-function primaryBtn(extra){ return `background:#3B4B6B;color:white;box-shadow:0 2px 6px -1px rgba(59,75,107,0.4);${extra||""}`; }
+function cardStyle(extra){ return `background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow-a);${extra||""}`; }
+function heroCardStyle(){ return `background:var(--card);border:1px solid var(--border);border-top:3px dashed var(--border2);box-shadow:0 2px 4px rgba(27,36,48,0.05),0 10px 24px -8px rgba(59,75,107,0.18);`; }
+function primaryBtn(extra){ return `background:var(--accent);color:white;box-shadow:0 2px 6px -1px rgba(59,75,107,0.4);${extra||""}`; }
 
 function ModalWrap(title, bodyHtml, opts){
   opts=opts||{};
   return `<div class="fixed inset-0 flex items-end sm:items-center justify-center z-50 px-0 sm:px-5" style="background:rgba(27,36,48,0.5);backdrop-filter:blur(2px)" data-action="close-modal">
-    <div class="modal-up w-full ${opts.wide?'sm:max-w-md':'sm:max-w-sm'} max-h-[85vh] overflow-y-auto rounded-t-xl sm:rounded-xl p-5" style="background:#FBFBF6;box-shadow:0 -8px 30px rgba(27,36,48,.15),0 20px 40px -12px rgba(27,36,48,.25)" data-stop="1">
-      <div class="w-10 h-1 rounded-full mx-auto mb-4 sm:hidden" style="background:#D8DBCF"></div>
+    <div class="modal-up w-full ${opts.wide?'sm:max-w-md':'sm:max-w-sm'} max-h-[85vh] overflow-y-auto rounded-t-xl sm:rounded-xl p-5" style="background:var(--card);box-shadow:0 -8px 30px rgba(27,36,48,.15),0 20px 40px -12px rgba(27,36,48,.25)" data-stop="1">
+      <div class="w-10 h-1 rounded-full mx-auto mb-4 sm:hidden" style="background:var(--border)"></div>
       <div class="flex items-center justify-between mb-4">
         <h3 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg">${esc(title)}</h3>
-        <button data-action="close-modal"><i data-lucide="x" style="width:18px;height:18px;color:#5B6470"></i></button>
+        <button data-action="close-modal"><i data-lucide="x" style="width:18px;height:18px;color:var(--muted)"></i></button>
       </div>
       ${bodyHtml}
     </div>
   </div>`;
 }
 function fieldHtml(label, inputHtml){
-  return `<div class="mb-3"><label class="text-xs uppercase tracking-wide block mb-1" style="color:#5B6470">${esc(label)}</label>${inputHtml}</div>`;
+  return `<div class="mb-3"><label class="text-xs uppercase tracking-wide block mb-1" style="color:var(--muted)">${esc(label)}</label>${inputHtml}</div>`;
 }
 
 /* --------------------------- Enrollment Gate --------------------------- */
 function EnrollmentGateHTML(){
   const d = state.draftGate || {school: SCHOOL_PRESETS[0].name};
-  return `<div style="background:linear-gradient(180deg,#F1F3E9 0%,#E4E7DA 100%);min-height:100vh" class="flex items-center justify-center px-5">
-    <div class="fade-in w-full max-w-sm rounded-xl p-6" style="background:#FBFBF6;border:1px solid #D8DBCF;box-shadow:0 20px 50px -12px rgba(27,36,48,.2)">
+  return `<div style="background:linear-gradient(180deg,var(--bg1) 0%,var(--bg3) 100%);min-height:100vh" class="flex items-center justify-center px-5">
+    <div class="fade-in w-full max-w-sm rounded-xl p-6" style="background:var(--card);border:1px solid var(--border);box-shadow:0 20px 50px -12px rgba(27,36,48,.2)">
       <div class="flex flex-col items-center mb-5">
         ${BrandMarkSVG(44)}
         <h1 style="font-family:'Fraunces',serif;font-weight:600" class="text-xl mt-2">Campus</h1>
-        <p class="text-xs text-center mt-1" style="color:#5B6470">Sign in with your student email to continue</p>
+        <p class="text-xs text-center mt-1" style="color:var(--muted)">Sign in with your student email to continue</p>
       </div>
       ${fieldHtml("School", `<select id="gate-school" class="px-3 py-2 rounded-xl" style="${inputStyle}">
         ${SCHOOL_PRESETS.map(s=>`<option value="${esc(s.name)}">${esc(s.name)}</option>`).join("")}
         <option value="Other">Other school</option>
       </select>`)}
       ${fieldHtml("Student email", `<input id="gate-email" type="email" placeholder="you@student.dcccd.edu" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
-      <div id="gate-error" class="text-xs mb-3" style="color:#B4432F"></div>
+      <div id="gate-error" class="text-xs mb-3" style="color:var(--over)"></div>
       <button data-action="gate-submit" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}">
         <i data-lucide="shield-check" style="width:15px;height:15px"></i> Continue
       </button>
       <div class="flex items-center gap-2 my-4">
-        <div class="flex-1 h-px" style="background:#D8DBCF"></div>
-        <span class="text-[10px] uppercase tracking-wide" style="color:#9098A0">or</span>
-        <div class="flex-1 h-px" style="background:#D8DBCF"></div>
+        <div class="flex-1 h-px" style="background:var(--border)"></div>
+        <span class="text-[10px] uppercase tracking-wide" style="color:var(--faint)">or</span>
+        <div class="flex-1 h-px" style="background:var(--border)"></div>
       </div>
       ${fieldHtml("Your name (optional)", `<input id="gate-name" placeholder="For your ID card" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
-      <button data-action="gate-pending" class="w-full py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5" style="border:1px solid #D8DBCF;color:#3B4B6B">
+      <button data-action="gate-pending" class="w-full py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5" style="border:1px solid var(--border);color:var(--accent)">
         Continue — not enrolled yet
       </button>
-      <p class="text-xs mt-2 leading-relaxed" style="color:#9098A0">Not registered yet, or don't have your student email? You can still use Campus. Your ID will show as "Pending" instead of "Verified" until you sign in with a matching student email later.</p>
+      <p class="text-xs mt-2 leading-relaxed" style="color:var(--faint)">Not registered yet, or don't have your student email? You can still use Campus. Your ID will show as "Pending" instead of "Verified" until you sign in with a matching student email later.</p>
     </div>
   </div>`;
 }
@@ -691,13 +776,13 @@ function gatePending(){
 /* --------------------------- Locked Feature --------------------------- */
 function LockedFeatureHTML(what){
   return `<div class="rounded-xl p-6 flex flex-col items-center text-center" style="${cardStyle()}">
-    <div class="w-11 h-11 rounded-full flex items-center justify-center mb-3" style="background:#E3E6DA">
-      <i data-lucide="shield-check" style="width:20px;height:20px;color:#3B4B6B"></i>
+    <div class="w-11 h-11 rounded-full flex items-center justify-center mb-3" style="background:var(--chip)">
+      <i data-lucide="shield-check" style="width:20px;height:20px;color:var(--accent)"></i>
     </div>
     <p style="font-family:'Fraunces',serif;font-weight:600" class="text-base mb-1">Verify to unlock ${esc(what)}</p>
-    <p class="text-xs mb-4" style="color:#5B6470">Map, events, and shared class checklists are for verified ${esc(state.enrollment.school)} students. Budget and your personal schedule stay open either way.</p>
+    <p class="text-xs mb-4" style="color:var(--muted)">Map, events, and shared class checklists are for verified ${esc(state.enrollment.school)} students. Budget and your personal schedule stay open either way.</p>
     <input id="lock-email" type="email" placeholder="you@student.dcccd.edu" class="px-3 py-2 rounded-xl mb-2" style="${inputStyle}"/>
-    <div id="lock-error" class="text-xs mb-2" style="color:#B4432F"></div>
+    <div id="lock-error" class="text-xs mb-2" style="color:var(--over)"></div>
     <button data-action="lock-verify" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}">
       <i data-lucide="shield-check" style="width:15px;height:15px"></i> Verify with student email
     </button>
@@ -713,20 +798,20 @@ function lockVerify(){
 
 /* ------------------------------- Header -------------------------------- */
 function HeaderHTML(){
-  return `<div class="sticky top-0 z-30" style="background:rgba(241,243,233,0.85);backdrop-filter:blur(10px);border-bottom:1px solid #D8DBCF;box-shadow:0 1px 0 rgba(255,255,255,.6),0 4px 16px rgba(27,36,48,.05)">
+  return `<div class="sticky top-0 z-30" style="background:rgba(241,243,233,0.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);box-shadow:0 1px 0 rgba(255,255,255,.6),0 4px 16px rgba(27,36,48,.05)">
     <div class="max-w-md mx-auto px-5 pt-5 pb-3 flex items-start justify-between">
       <div class="flex items-center gap-2.5">
         ${BrandMarkSVG(34)}
         <div>
           <h1 style="font-family:'Fraunces',serif;font-weight:600" class="text-2xl tracking-tight leading-none">Campus</h1>
-          <p class="text-xs mt-1" style="color:#5B6470">Money, classes, and campus life in one place</p>
+          <p class="text-xs mt-1" style="color:var(--muted)">Money, classes, and campus life in one place</p>
         </div>
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
         <button data-action="open-id" class="relative p-2 rounded-full" style="${cardStyle()}"><i data-lucide="credit-card" style="width:18px;height:18px"></i></button>
         <button data-action="open-feed" class="relative p-2 rounded-full" style="${cardStyle()}">
           <i data-lucide="bell" style="width:18px;height:18px"></i>
-          ${state.alerts.length>0?`<span class="absolute -top-1 -right-1 rounded-full text-[10px] flex items-center justify-center" style="background:#B4432F;color:white;width:16px;height:16px;box-shadow:0 1px 3px rgba(180,67,47,.5)">${state.alerts.length>9?"9+":state.alerts.length}</span>`:""}
+          ${state.alerts.length>0?`<span class="absolute -top-1 -right-1 rounded-full text-[10px] flex items-center justify-center" style="background:var(--over);color:white;width:16px;height:16px;box-shadow:0 1px 3px rgba(180,67,47,.5)">${state.alerts.length>9?"9+":state.alerts.length}</span>`:""}
         </button>
       </div>
     </div>
@@ -739,7 +824,7 @@ function BannersHTML(){
     ${active.map(a=>`<div class="flex items-start gap-2 p-3 rounded-xl" style="background:${LEVEL_COLOR[a.level]}1A;border-left:3px solid ${LEVEL_COLOR[a.level]}">
       <i data-lucide="${LEVEL_ICON[a.level]||'bell'}" style="width:16px;height:16px;color:${LEVEL_COLOR[a.level]};margin-top:2px;flex-shrink:0"></i>
       <p class="text-sm flex-1">${esc(a.message)}</p>
-      <button data-action="dismiss-banner" data-id="${a.id}"><i data-lucide="x" style="width:15px;height:15px;color:#5B6470"></i></button>
+      <button data-action="dismiss-banner" data-id="${a.id}"><i data-lucide="x" style="width:15px;height:15px;color:var(--muted)"></i></button>
     </div>`).join("")}
   </div>`;
 }
@@ -747,24 +832,25 @@ function BannersHTML(){
 /* ------------------------------ Bottom Nav ------------------------------ */
 const TABS=[
   {id:"today",label:"Today",icon:"home"},
+  {id:"classes",label:"Classes",icon:"book-open"},
   {id:"schedule",label:"Schedule",icon:"calendar-days"},
   {id:"budget",label:"Budget",icon:"wallet"},
   {id:"map",label:"Map",icon:"map-pin"},
   {id:"events",label:"Events",icon:"party-popper"},
 ];
 function BottomNavHTML(){
-  return `<div class="fixed bottom-0 left-0 right-0 z-40" style="background:rgba(251,251,246,.9);backdrop-filter:blur(10px);border-top:1px solid #D8DBCF;box-shadow:0 -4px 20px rgba(27,36,48,.08)">
+  return `<div class="fixed bottom-0 left-0 right-0 z-40" style="background:var(--card);backdrop-filter:blur(10px);border-top:1px solid var(--border);box-shadow:0 -4px 20px rgba(27,36,48,.08)">
     <div class="max-w-md mx-auto flex">
       ${TABS.map(t=>{
         const active=state.tab===t.id;
         const locked=!isVerified() && (t.id==="map"||t.id==="events");
         return `<button data-action="set-tab" data-tab="${t.id}" class="relative flex-1 flex flex-col items-center gap-1 py-2.5">
-          ${active?`<div class="absolute top-0 rounded-b-full" style="width:20px;height:2.5px;background:#F4C77A"></div>`:""}
+          ${active?`<div class="absolute top-0 rounded-b-full" style="width:20px;height:2.5px;background:var(--highlight)"></div>`:""}
           <div class="relative">
-            <i data-lucide="${t.icon}" style="width:19px;height:19px;color:${active?'#3B4B6B':'#9098A0'}"></i>
-            ${locked?`<div class="absolute -bottom-0.5 -right-1 rounded-full flex items-center justify-center" style="width:10px;height:10px;background:#FBFBF6"><i data-lucide="shield-check" style="width:8px;height:8px;color:#C77D2D"></i></div>`:""}
+            <i data-lucide="${t.icon}" style="width:19px;height:19px;color:${active?'var(--accent)':'var(--faint)'}"></i>
+            ${locked?`<div class="absolute -bottom-0.5 -right-1 rounded-full flex items-center justify-center" style="width:10px;height:10px;background:var(--card)"><i data-lucide="shield-check" style="width:8px;height:8px;color:var(--warn)"></i></div>`:""}
           </div>
-          <span class="text-[10px]" style="color:${active?'#3B4B6B':'#9098A0'};font-weight:${active?600:400}">${t.label}</span>
+          <span class="text-[10px]" style="color:${active?'var(--accent)':'var(--faint)'};font-weight:${active?600:400}">${t.label}</span>
         </button>`;
       }).join("")}
     </div>
@@ -779,29 +865,29 @@ function EnrollmentChecklistCardHTML(){
   const open = state.enrollChecklistOpen===null ? !isVerified() : state.enrollChecklistOpen;
   return `<div class="rounded-xl p-4" style="${cardStyle()}">
     <button data-action="toggle-enroll-checklist" class="w-full flex items-center justify-between">
-      <span class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470">
+      <span class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:var(--muted)">
         <i data-lucide="list-checks" style="width:13px;height:13px"></i> ${isVerified()?"Enrollment checklist":"Getting enrolled"}
       </span>
-      <i data-lucide="${open?'chevron-up':'chevron-down'}" style="width:14px;height:14px;color:#5B6470"></i>
+      <i data-lucide="${open?'chevron-up':'chevron-down'}" style="width:14px;height:14px;color:var(--muted)"></i>
     </button>
     ${open?`<div class="mt-3">
-      ${!isVerified()?`<p class="text-xs mb-3" style="color:#5B6470">General steps for getting into an accredited school — check off what you've done. Your specific school may have a few extra requirements, so confirm anything unclear with their admissions office.</p>`:""}
+      ${!isVerified()?`<p class="text-xs mb-3" style="color:var(--muted)">General steps for getting into an accredited school — check off what you've done. Your specific school may have a few extra requirements, so confirm anything unclear with their admissions office.</p>`:""}
       <div class="mb-2">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="text-xs" style="color:#5B6470">${done} of ${items.length} done</span>
-          <span class="text-xs" style="font-family:'IBM Plex Mono',monospace;color:#5B6470">${Math.round(pct)}%</span>
+          <span class="text-xs" style="color:var(--muted)">${done} of ${items.length} done</span>
+          <span class="text-xs" style="font-family:'IBM Plex Mono',monospace;color:var(--muted)">${Math.round(pct)}%</span>
         </div>
         ${RulerBarHTML(pct, pct>=100?"ok":pct>=50?"warn":"over")}
       </div>
       <div class="space-y-1.5 mt-3">
         ${items.map(it=>`<div class="flex items-center gap-2 text-sm">
           <button data-action="toggle-enroll-item" data-id="${it.id}" class="flex-shrink-0">
-            <div class="w-4 h-4 rounded-md flex items-center justify-center" style="border:1px solid #3B4B6B;background:${it.done?'#3B4B6B':'white'}">
+            <div class="w-4 h-4 rounded-md flex items-center justify-center" style="border:1px solid var(--accent);background:${it.done?'var(--accent)':'white'}">
               ${it.done?'<i data-lucide="check" style="width:11px;height:11px;color:white"></i>':''}
             </div>
           </button>
-          <span class="flex-1" style="text-decoration:${it.done?'line-through':'none'};color:${it.done?'#9098A0':'#1B2430'}">${esc(it.text)}</span>
-          <button data-action="delete-enroll-item" data-id="${it.id}"><i data-lucide="x" style="width:12px;height:12px;color:#B0B4A6"></i></button>
+          <span class="flex-1" style="text-decoration:${it.done?'line-through':'none'};color:${it.done?'var(--faint)':'var(--text)'}">${esc(it.text)}</span>
+          <button data-action="delete-enroll-item" data-id="${it.id}"><i data-lucide="x" style="width:12px;height:12px;color:var(--faint2)"></i></button>
         </div>`).join("")}
       </div>
       <div class="flex gap-1.5 mt-2.5">
@@ -816,7 +902,9 @@ function TodayTabHTML(){
   const todays=state.classes.filter(c=>c.days.includes(dayIdx)).sort((a,b)=>parseTime(a.start)-parseTime(b.start));
   const next=todays.find(c=>parseTime(c.end)>nowMin);
   const todayEvents=state.events.filter(e=>e.date && new Date(e.date).toDateString()===now.toDateString());
-  const dueSoon=state.assignments.filter(a=>!a.done && daysUntil(a.dueDate)>=0 && daysUntil(a.dueDate)<=3).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+  const dueSoonAll=state.assignments.filter(a=>!a.done && daysUntil(a.dueDate)>=0 && daysUntil(a.dueDate)<=3).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+  const dueSoon=dueSoonAll.slice(0,4);
+  const dueSoonMore=dueSoonAll.length-dueSoon.length;
   const commitmentCount=todays.length+todayEvents.length;
   const heavyDay=commitmentCount>=4;
   const discCats=state.budgetCats.filter(c=>c.discretionary);
@@ -829,41 +917,43 @@ function TodayTabHTML(){
   return `<div class="space-y-4">
     ${EnrollmentChecklistCardHTML()}
     ${pace?SemesterPaceCardHTML(pace, state.semester.total):""}
-    ${heavyDay?`<div class="flex items-center gap-2 p-3 rounded-xl text-sm" style="background:rgba(199,125,45,.1);border-left:3px solid #C77D2D">
-      <i data-lucide="alert-triangle" style="width:15px;height:15px;color:#C77D2D;flex-shrink:0"></i>
+    ${heavyDay?`<div class="flex items-center gap-2 p-3 rounded-xl text-sm" style="background:rgba(199,125,45,.1);border-left:3px solid var(--warn)">
+      <i data-lucide="alert-triangle" style="width:15px;height:15px;color:var(--warn);flex-shrink:0"></i>
       <span>Heavy day — ${commitmentCount} things on the calendar. Worth protecting a real break somewhere.</span>
     </div>`:""}
     <div class="rounded-xl p-4" style="${heroCardStyle()}">
-      <p class="text-xs uppercase tracking-wide mb-1.5" style="color:#5B6470">Up next</p>
+      <p class="text-xs uppercase tracking-wide mb-1.5" style="color:var(--muted)">Up next</p>
       ${next?`<p style="font-family:'Fraunces',serif;font-weight:600" class="text-xl">${esc(next.name)}</p>
-        <p class="text-sm mt-0.5" style="color:#5B6470">${fmtTime(next.start)} – ${fmtTime(next.end)}${next.location?` · ${esc(next.location)}`:""}</p>`
-        :`<p class="text-sm" style="color:#5B6470">No more classes today.</p>`}
+        <p class="text-sm mt-0.5" style="color:var(--muted)">${fmtTime(next.start)} – ${fmtTime(next.end)}${next.location?` · ${esc(next.location)}`:""}</p>`
+        :`<p class="text-sm" style="color:var(--muted)">No more classes today.</p>`}
     </div>
     ${todayEvents.length?`<div class="rounded-xl p-4" style="${cardStyle()}">
-      <p class="text-xs uppercase tracking-wide mb-2" style="color:#5B6470">Today's events</p>
-      <div class="space-y-1.5">${todayEvents.map(e=>`<div class="flex justify-between text-sm"><span>${esc(e.title)}</span><span style="color:#5B6470">${e.time?fmtTime(e.time):"All day"}</span></div>`).join("")}</div>
+      <p class="text-xs uppercase tracking-wide mb-2" style="color:var(--muted)">Today's events</p>
+      <div class="space-y-1.5">${todayEvents.map(e=>`<div class="flex justify-between text-sm"><span>${esc(e.title)}</span><span style="color:var(--muted)">${e.time?fmtTime(e.time):"All day"}</span></div>`).join("")}</div>
     </div>`:""}
     ${dueSoon.length?`<div class="rounded-xl p-4" style="${cardStyle()}">
-      <p class="text-xs uppercase tracking-wide mb-2 flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="list-checks" style="width:13px;height:13px"></i> Due soon</p>
-      <div class="space-y-1.5">${dueSoon.map(a=>{const away=daysUntil(a.dueDate); return `<div class="flex justify-between text-sm"><span>${esc(a.title)}</span><span style="color:${away<=1?'#B4432F':'#C77D2D'}">${away===0?"Today":away+"d"}</span></div>`;}).join("")}</div>
+      <p class="text-xs uppercase tracking-wide mb-2 flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="list-checks" style="width:13px;height:13px"></i> Due soon</p>
+      <div class="space-y-1.5">${dueSoon.map(a=>{const away=daysUntil(a.dueDate); return `<div class="flex justify-between text-sm"><span>${esc(a.title)}</span><span style="color:${away<=1?'var(--over)':'var(--warn)'}">${away===0?"Today":away+"d"}</span></div>`;}).join("")}</div>
     </div>`:""}
     ${upcomingSubs.length?`<div class="rounded-xl p-4" style="${cardStyle()}">
-      <p class="text-xs uppercase tracking-wide mb-2" style="color:#5B6470">Renewing soon</p>
-      <div class="space-y-1.5">${upcomingSubs.map(s=>`<div class="flex justify-between text-sm"><span>${esc(s.name)}</span><span style="color:${s.away<=3?'#C77D2D':'#5B6470'}">${s.away===0?"Today":s.away+"d"} · ${fmtMoney(s.amount)}</span></div>`).join("")}</div>
+      <p class="text-xs uppercase tracking-wide mb-2" style="color:var(--muted)">Renewing soon</p>
+      <div class="space-y-1.5">${upcomingSubs.map(s=>`<div class="flex justify-between text-sm"><span>${esc(s.name)}</span><span style="color:${s.away<=3?'var(--warn)':'var(--muted)'}">${s.away===0?"Today":s.away+"d"} · ${fmtMoney(s.amount)}</span></div>`).join("")}</div>
     </div>`:""}
     <div class="rounded-xl p-4 flex items-center gap-4" style="${cardStyle()}">
       ${RadialRingHTML(discPct, statusFor(discPct), 72, `<span style="font-family:'IBM Plex Mono',monospace;font-weight:600" class="text-xs">${discLimit>0?Math.round(discPct):0}%</span>`)}
       <div class="flex-1 min-w-0">
-        <p class="text-xs uppercase tracking-wide mb-1.5" style="color:#5B6470">Discretionary spend this week</p>
+        <p class="text-xs uppercase tracking-wide mb-1.5" style="color:var(--muted)">Discretionary spend this week</p>
         <div class="flex items-baseline gap-1.5">
           <span style="font-family:'IBM Plex Mono',monospace;font-weight:600" class="text-2xl">${fmtMoney(discSpent)}</span>
-          <span style="color:#5B6470;font-family:'IBM Plex Mono',monospace" class="text-sm">/ ${fmtMoney(discLimit)}</span>
+          <span style="color:var(--muted);font-family:'IBM Plex Mono',monospace" class="text-sm">/ ${fmtMoney(discLimit)}</span>
         </div>
       </div>
     </div>
     ${CampusSafetyCardHTML()}
     ${CampusSupportCardHTML()}
     ${SyllabusImportCardHTML()}
+    ${CalendarCardHTML()}
+    ${ThemeCardHTML()}
     ${DriveSyncCardHTML()}
   </div>`;
 }
@@ -872,13 +962,13 @@ function SemesterPaceCardHTML(pace, total){
   const diff=Math.abs(pace.remaining-pace.expectedRemaining);
   const ahead=pace.remaining>=pace.expectedRemaining;
   return `<div class="rounded-xl p-4" style="${cardStyle()}">
-    <p class="text-xs uppercase tracking-wide mb-1.5" style="color:#5B6470">Semester funds</p>
+    <p class="text-xs uppercase tracking-wide mb-1.5" style="color:var(--muted)">Semester funds</p>
     <div class="flex items-baseline gap-1.5 mb-2">
       <span style="font-family:'IBM Plex Mono',monospace;font-weight:600" class="text-2xl">${fmtMoney(pace.remaining)}</span>
-      <span style="color:#5B6470;font-family:'IBM Plex Mono',monospace" class="text-sm">left of ${fmtMoney(total)}</span>
+      <span style="color:var(--muted);font-family:'IBM Plex Mono',monospace" class="text-sm">left of ${fmtMoney(total)}</span>
     </div>
     ${RulerBarHTML(pct, pace.status)}
-    <p class="text-xs mt-2" style="color:${pace.status==='ok'?'#1F7A5C':pace.status==='warn'?'#C77D2D':'#B4432F'}">
+    <p class="text-xs mt-2" style="color:${pace.status==='ok'?'var(--ok)':pace.status==='warn'?'var(--warn)':'var(--over)'}">
       ${ahead?`${fmtMoney(diff)} ahead of an even pace`:`${fmtMoney(diff)} behind an even pace`} · about ${fmtMoney(pace.weeklyAllowance)}/week to stay on track
     </p>
   </div>`;
@@ -886,12 +976,12 @@ function SemesterPaceCardHTML(pace, total){
 function SyllabusImportCardHTML(){
   const done = LS.get("campus-syllabus-import-done", false);
   return `<div class="rounded-xl p-4" style="${cardStyle()}">
-    <p class="text-xs uppercase tracking-wide mb-2 flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="file-text" style="width:13px;height:13px"></i> Fall 2026 syllabus import</p>
+    <p class="text-xs uppercase tracking-wide mb-2 flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="file-text" style="width:13px;height:13px"></i> Fall 2026 syllabus import</p>
     ${done?`
-      <p class="text-xs flex items-center gap-1.5" style="color:#1F7A5C"><i data-lucide="check" style="width:13px;height:13px"></i> Imported — Legal Research and Public Speaking are in the Schedule tab.</p>
-      <button data-action="run-syllabus-import" class="text-xs mt-2" style="color:#5B6470">Run again anyway (may create duplicates)</button>
+      <p class="text-xs flex items-center gap-1.5" style="color:var(--ok)"><i data-lucide="check" style="width:13px;height:13px"></i> Imported — Legal Research and Public Speaking are in the Schedule tab.</p>
+      <button data-action="run-syllabus-import" class="text-xs mt-2" style="color:var(--muted)">Run again anyway (may create duplicates)</button>
     `:`
-      <p class="text-xs mb-2" style="color:#5B6470">One tap adds Legal Research and Writing (LGLA 1301.5) and Public Speaking (SPCH 1315.29) — classes, dates, assignments, instructor info, and textbooks — straight from the syllabi already reviewed.</p>
+      <p class="text-xs mb-2" style="color:var(--muted)">One tap adds Legal Research and Writing (LGLA 1301.5) and Public Speaking (SPCH 1315.29) — classes, dates, assignments, instructor info, and textbooks — straight from the syllabi already reviewed.</p>
       <button data-action="run-syllabus-import" class="w-full py-2 rounded-xl text-sm flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="download" style="width:14px;height:14px"></i> Import Fall 2026 schedule</button>
     `}
   </div>`;
@@ -899,10 +989,11 @@ function SyllabusImportCardHTML(){
 function runSyllabusImport(){
   function checklistKey(name){ return `checklist-${name.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,80)}`; }
 
+  const legalId = uid();
   state.classes = [...state.classes, {
-    id: uid(), name: "Legal Research and Writing (LGLA 1301.5)", days: [3],
+    id: legalId, name: "Legal Research and Writing (LGLA 1301.5)", days: [3],
     start: "18:00", end: "20:50", pinId: null,
-    location: "Synchronous Online (Zoom) — El Centro Campus A959 office", color: "#1F7A5C",
+    location: "Synchronous Online (Zoom) — El Centro Campus A959 office", color: "var(--ok)",
   }];
   persist("campus-classes", state.classes);
 
@@ -964,48 +1055,198 @@ function runSyllabusImport(){
     ["Wk15: FINAL EXAM (ch 1-19) — ALL WORK DUE, last call", "2026-12-06"],
   ];
   legalResearchDue.forEach(([title,dueDate])=>{
-    state.assignments.push({ id: uid(), title: "LGLA 1301.5: "+title, dueDate, done:false });
+    state.assignments.push({ id: uid(), classId: legalId, title, dueDate, done:false });
   });
   persist("campus-assignments", state.assignments);
 
   persist("campus-syllabus-import-done", true);
   render();
 }
+const THEMES=[
+  {id:"warm",  label:"Warm",  hint:"Soft cream, the default"},
+  {id:"night", label:"Night", hint:"Dark, low light"},
+  {id:"plain", label:"Plain", hint:"Flat white, minimal colour"},
+];
+function ThemeCardHTML(){
+  return `<div class="rounded-xl p-4 mb-4" style="${cardStyle()}">
+    <p class="text-xs uppercase tracking-wide mb-2.5 flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="palette" style="width:13px;height:13px"></i> Appearance</p>
+    <div class="space-y-1.5">
+      ${THEMES.map(t=>{
+        const on=(state.theme||"warm")===t.id;
+        return `<button data-action="set-theme" data-theme="${t.id}" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left" style="border:1px solid ${on?'var(--accent)':'var(--border)'};background:${on?'var(--chip)':'transparent'}">
+          <div class="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style="border:1px solid ${on?'var(--accent)':'var(--border2)'}">${on?`<div class="rounded-full" style="width:8px;height:8px;background:var(--accent)"></div>`:""}</div>
+          <span class="flex-1 text-sm" style="color:var(--text)">${t.label}</span>
+          <span class="text-xs" style="color:var(--muted)">${t.hint}</span>
+        </button>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+/* ============================ Google Calendar ============================= */
+let collegeCalendarId = LS.get("campus-calendar-id", null);
+async function calApi(url, options){
+  options=options||{};
+  options.headers={ ...(options.headers||{}), Authorization:`Bearer ${driveAccessToken}` };
+  const res=await fetch(url, options);
+  if(res.status===401){ state.driveConnected=false; driveAccessToken=null; throw new Error("Google session expired — reconnect."); }
+  return res;
+}
+async function findOrCreateCollegeCalendar(){
+  if(collegeCalendarId){
+    const check=await calApi(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(collegeCalendarId)}`);
+    if(check.ok) return collegeCalendarId;
+  }
+  const list=await calApi("https://www.googleapis.com/calendar/v3/users/me/calendarList");
+  if(list.ok){
+    const data=await list.json();
+    const found=(data.items||[]).find(c=>c.summary===COLLEGE_CAL_NAME);
+    if(found){ collegeCalendarId=found.id; LS.set("campus-calendar-id", found.id); return found.id; }
+  }
+  const made=await calApi("https://www.googleapis.com/calendar/v3/calendars",{
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ summary: COLLEGE_CAL_NAME, description:"Class schedule, due dates and campus events from Campus.", timeZone: CAL_TZ }),
+  });
+  if(!made.ok) throw new Error("Couldn't create the College calendar.");
+  const cal=await made.json();
+  collegeCalendarId=cal.id; LS.set("campus-calendar-id", cal.id);
+  return cal.id;
+}
+function courseEndFor(className){
+  const short=shortClassName(className).toLowerCase();
+  const hit=state.importantDates.find(d=>/course ends/i.test(d.label) &&
+    (d.label.toLowerCase().indexOf(short)!==-1 || d.label.toLowerCase().indexOf(courseCodeOf(className).toLowerCase())!==-1));
+  return hit?hit.date:null;
+}
+function nextDateForWeekday(dayIdx){
+  const d=new Date(); d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + ((dayIdx - d.getDay() + 7) % 7));
+  return d;
+}
+function isoLocal(dateObj, hhmm){
+  const [h,m]=hhmm.split(":");
+  const p=n=>String(n).padStart(2,"0");
+  return `${dateObj.getFullYear()}-${p(dateObj.getMonth()+1)}-${p(dateObj.getDate())}T${p(h)}:${p(m)}:00`;
+}
+// Everything Campus knows how to put on a calendar, with a stable key per item.
+function calendarPayload(){
+  const out=[];
+  state.classes.forEach(c=>{
+    (c.days||[]).forEach(dayIdx=>{
+      const first=nextDateForWeekday(dayIdx);
+      const until=courseEndFor(c.name);
+      const body={
+        summary: shortClassName(c.name),
+        location: c.location||"",
+        description: c.name,
+        start:{ dateTime: isoLocal(first, c.start), timeZone: CAL_TZ },
+        end:{ dateTime: isoLocal(first, c.end), timeZone: CAL_TZ },
+      };
+      if(until) body.recurrence=[`RRULE:FREQ=WEEKLY;UNTIL=${until.replace(/-/g,"")}T235900Z`];
+      else body.recurrence=["RRULE:FREQ=WEEKLY;COUNT=16"];
+      out.push({key:`class-${c.id}-${dayIdx}`, body});
+    });
+  });
+  state.assignments.filter(a=>!a.done && a.dueDate).forEach(a=>{
+    const c=classOfAssignment(a);
+    out.push({key:`assign-${a.id}`, body:{
+      summary: (c?shortClassName(c.name)+": ":"") + a.title,
+      description:"Assignment due",
+      start:{ date:a.dueDate }, end:{ date:a.dueDate },
+    }});
+  });
+  state.importantDates.forEach(d=>{
+    out.push({key:`date-${d.id}`, body:{ summary:d.label, start:{date:d.date}, end:{date:d.date} }});
+  });
+  state.events.forEach(e=>{
+    if(!e.date) return;
+    const body={ summary:e.title, location:e.location||"", description:e.note||"" };
+    if(e.time){
+      const dt=new Date(e.date+"T12:00:00");
+      body.start={ dateTime: isoLocal(dt, e.time), timeZone: CAL_TZ };
+      const [h,m]=e.time.split(":");
+      body.end={ dateTime: isoLocal(dt, `${String((+h+1)%24).padStart(2,"0")}:${m}`), timeZone: CAL_TZ };
+    } else { body.start={date:e.date}; body.end={date:e.date}; }
+    out.push({key:`event-${e.id}`, body});
+  });
+  return out;
+}
+async function pushToGoogleCalendar(){
+  if(!driveAccessToken){ state.calError="Connect Google first — the same connection covers Calendar."; render(); return; }
+  state.calPushing=true; state.calError=""; render();
+  try{
+    const calId=await findOrCreateCollegeCalendar();
+    const map=LS.get("campus-calendar-map", {});
+    const items=calendarPayload();
+    let added=0, updated=0;
+    for(const it of items){
+      const existing=map[it.key];
+      let res=null;
+      if(existing){
+        res=await calApi(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(existing)}`,
+          {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(it.body)});
+        if(res.ok){ updated++; continue; }
+      }
+      res=await calApi(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`,
+        {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(it.body)});
+      if(res.ok){ const ev=await res.json(); map[it.key]=ev.id; added++; }
+    }
+    LS.set("campus-calendar-map", map);
+    state.calLastPush=new Date().toISOString();
+    LS.set("campus-calendar-last-push", state.calLastPush);
+    state.calSummary=`${added} added, ${updated} updated`;
+  }catch(err){
+    state.calError=(err && err.message) ? err.message : "Couldn't reach Google Calendar. Nothing was changed.";
+  }
+  state.calPushing=false; render();
+}
+function CalendarCardHTML(){
+  const n=calendarPayload().length;
+  return `<div class="rounded-xl p-4 mb-4" style="${cardStyle()}">
+    <p class="text-xs uppercase tracking-wide mb-2 flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="calendar" style="width:13px;height:13px"></i> Google Calendar</p>
+    <p class="text-xs mb-2.5 leading-relaxed" style="color:var(--muted)">Sends classes, due dates and events to a separate calendar named <strong>College</strong>. It's created the first time you sync, and this app can only ever touch that one \u2014 nothing shared or personal is visible to it.</p>
+    <button data-action="push-calendar" ${state.calPushing?"disabled":""} class="w-full py-2 rounded-xl text-sm flex items-center justify-center gap-1.5" style="${primaryBtn()}">
+      <i data-lucide="${state.calPushing?'loader':'upload'}" style="width:14px;height:14px"></i> ${state.calPushing?"Sending\u2026":`Send ${n} items to College`}
+    </button>
+    ${state.calLastPush?`<p class="text-xs mt-2" style="color:var(--ok)">Last sent ${new Date(state.calLastPush).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}${state.calSummary?` \u00b7 ${esc(state.calSummary)}`:""}</p>`:""}
+    ${state.calError?`<p class="text-xs mt-2" style="color:var(--over)">${esc(state.calError)}</p>`:""}
+  </div>`;
+}
 function DriveSyncCardHTML(){
   return `<div class="rounded-xl p-4" style="${cardStyle()}">
     <div class="flex items-center justify-between">
-      <span class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="cloud" style="width:13px;height:13px"></i> Cloud sync</span>
-      ${state.driveConnected?`<span class="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style="background:#E3E6DA;color:#1F7A5C"><i data-lucide="check" style="width:10px;height:10px"></i> Connected</span>`:""}
+      <span class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="cloud" style="width:13px;height:13px"></i> Cloud sync</span>
+      ${state.driveConnected?`<span class="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style="background:var(--chip);color:var(--ok)"><i data-lucide="check" style="width:10px;height:10px"></i> Connected</span>`:""}
     </div>
     ${state.driveConnected?`
-      <p class="text-xs mt-2" style="color:#5B6470">${state.driveLastSynced?`Last synced ${new Date(state.driveLastSynced).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}`:"Not synced yet."}</p>
-      <button data-action="sync-now" class="text-xs mt-2 flex items-center gap-1" style="color:#3B4B6B"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Sync now</button>
+      <p class="text-xs mt-2" style="color:var(--muted)">${state.driveLastSynced?`Last synced ${new Date(state.driveLastSynced).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}`:"Not synced yet."}</p>
+      <button data-action="sync-now" class="text-xs mt-2 flex items-center gap-1" style="color:var(--accent)"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Sync now</button>
     `:`
-      <p class="text-xs mt-2 mb-2" style="color:#5B6470">Connect Google Drive so your data follows you across devices instead of staying on just this one.</p>
+      <p class="text-xs mt-2 mb-2" style="color:var(--muted)">Connect Google Drive so your data follows you across devices instead of staying on just this one.</p>
       <button data-action="connect-drive" ${state.driveConnecting?"disabled":""} class="w-full py-2 rounded-xl text-sm flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="cloud" style="width:14px;height:14px"></i> ${state.driveConnecting?"Connecting…":"Connect Google Drive"}</button>
     `}
-    ${state.driveError?`<p class="text-xs mt-2" style="color:#B4432F">${esc(state.driveError)}</p>`:""}
+    ${state.driveError?`<p class="text-xs mt-2" style="color:var(--over)">${esc(state.driveError)}</p>`:""}
   </div>`;
 }
 function CampusSafetyCardHTML(){
   const info=state.safetyInfo;
   return `<div class="rounded-xl p-4" style="${cardStyle()}">
     <button data-action="toggle-safety" class="w-full flex items-center justify-between">
-      <span class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="shield-alert" style="width:13px;height:13px"></i> Campus safety</span>
-      <i data-lucide="${state.safetyOpen?'chevron-up':'chevron-down'}" style="width:14px;height:14px;color:#5B6470"></i>
+      <span class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="shield-alert" style="width:13px;height:13px"></i> Campus safety</span>
+      <i data-lucide="${state.safetyOpen?'chevron-up':'chevron-down'}" style="width:14px;height:14px;color:var(--muted)"></i>
     </button>
     ${state.safetyOpen?`<div class="mt-3 space-y-2.5 text-sm">
-      <p class="flex items-center gap-1.5"><i data-lucide="phone" style="width:13px;height:13px;color:#B4432F"></i> Emergency — call 911</p>
+      <p class="flex items-center gap-1.5"><i data-lucide="phone" style="width:13px;height:13px;color:var(--over)"></i> Emergency — call 911</p>
       ${state.safetyEditing?`
         <input id="safety-num" value="${esc(info.safetyNumber)}" placeholder="Campus safety / police non-emergency number" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>
         <input id="escort-num" value="${esc(info.escortNumber)}" placeholder="Safety escort number (if your campus has one)" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>
         <button data-action="save-safety" class="w-full py-2 rounded-xl text-sm" style="${primaryBtn()}">Save</button>
       `:`
-        ${info.safetyNumber?`<p class="flex items-center gap-1.5"><i data-lucide="phone" style="width:13px;height:13px;color:#3B4B6B"></i> Campus safety — ${esc(info.safetyNumber)}</p>`:""}
-        ${info.escortNumber?`<p class="flex items-center gap-1.5"><i data-lucide="footprints" style="width:13px;height:13px;color:#3B4B6B"></i> Safety escort — ${esc(info.escortNumber)}</p>`:""}
-        ${(!info.safetyNumber && !info.escortNumber)?`<button data-action="edit-safety" class="text-xs" style="color:#3B4B6B">+ Add your campus safety numbers</button>`:""}
-        <a href="https://www.nsopw.gov" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5" style="color:#3B4B6B"><i data-lucide="external-link" style="width:13px;height:13px"></i> Search the official public sex offender registry</a>
-        ${(info.safetyNumber||info.escortNumber)?`<button data-action="edit-safety" class="text-xs" style="color:#3B4B6B">Edit numbers</button>`:""}
+        ${info.safetyNumber?`<p class="flex items-center gap-1.5"><i data-lucide="phone" style="width:13px;height:13px;color:var(--accent)"></i> Campus safety — ${esc(info.safetyNumber)}</p>`:""}
+        ${info.escortNumber?`<p class="flex items-center gap-1.5"><i data-lucide="footprints" style="width:13px;height:13px;color:var(--accent)"></i> Safety escort — ${esc(info.escortNumber)}</p>`:""}
+        ${(!info.safetyNumber && !info.escortNumber)?`<button data-action="edit-safety" class="text-xs" style="color:var(--accent)">+ Add your campus safety numbers</button>`:""}
+        <a href="https://www.nsopw.gov" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5" style="color:var(--accent)"><i data-lucide="external-link" style="width:13px;height:13px"></i> Search the official public sex offender registry</a>
+        ${(info.safetyNumber||info.escortNumber)?`<button data-action="edit-safety" class="text-xs" style="color:var(--accent)">Edit numbers</button>`:""}
       `}
     </div>`:""}
   </div>`;
@@ -1014,8 +1255,8 @@ function CampusSupportCardHTML(){
   const info=state.supportInfo;
   return `<div class="rounded-xl p-4" style="${cardStyle()}">
     <button data-action="toggle-support" class="w-full flex items-center justify-between">
-      <span class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="life-buoy" style="width:13px;height:13px"></i> Campus support</span>
-      <i data-lucide="${state.supportOpen?'chevron-up':'chevron-down'}" style="width:14px;height:14px;color:#5B6470"></i>
+      <span class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="life-buoy" style="width:13px;height:13px"></i> Campus support</span>
+      <i data-lucide="${state.supportOpen?'chevron-up':'chevron-down'}" style="width:14px;height:14px;color:var(--muted)"></i>
     </button>
     ${state.supportOpen?`<div class="mt-3 space-y-2 text-sm">
       ${state.supportEditing?`
@@ -1023,9 +1264,9 @@ function CampusSupportCardHTML(){
         <input id="support-number" value="${esc(info.number)}" placeholder="Their phone number" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>
         <button data-action="save-support" class="w-full py-2 rounded-xl text-sm" style="${primaryBtn()}">Save</button>
       `:`
-        ${info.center?`<p>${esc(info.center)}${info.number?` · ${esc(info.number)}`:""}</p>`:`<button data-action="edit-support" class="text-xs" style="color:#3B4B6B">+ Add your campus counseling center</button>`}
-        <p style="color:#5B6470">988 Suicide &amp; Crisis Lifeline — call or text 988, any time.</p>
-        ${info.center?`<button data-action="edit-support" class="text-xs" style="color:#3B4B6B">Edit</button>`:""}
+        ${info.center?`<p>${esc(info.center)}${info.number?` · ${esc(info.number)}`:""}</p>`:`<button data-action="edit-support" class="text-xs" style="color:var(--accent)">+ Add your campus counseling center</button>`}
+        <p style="color:var(--muted)">988 Suicide &amp; Crisis Lifeline — call or text 988, any time.</p>
+        ${info.center?`<button data-action="edit-support" class="text-xs" style="color:var(--accent)">Edit</button>`:""}
       `}
     </div>`:""}
   </div>`;
@@ -1042,26 +1283,26 @@ function ScheduleTabHTML(){
   return `<div>
     <div class="rounded-xl p-3.5 mb-4" style="${cardStyle()}">
       <div class="flex items-center justify-between mb-2">
-        <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Student checklist</p>
+        <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Student checklist</p>
       </div>
       ${isVerified()?`
-        <p class="text-[10px] mb-2" style="color:#9098A0">Shared list for ${esc(school)} — note: on this static build this is saved only on this device/browser, not synced with classmates (that needs a real backend).</p>
+        <p class="text-[10px] mb-2" style="color:var(--faint)">Shared list for ${esc(school)} — note: on this static build this is saved only on this device/browser, not synced with classmates (that needs a real backend).</p>
         ${ChecklistPanelHTML(schoolChecklistKey(school), true)}
-      `:`<p class="text-xs" style="color:#5B6470">Move-in steps, first-week to-dos, anything worth flagging for everyone at ${esc(school)||"your school"}. Verify your student email to see and add items.</p>`}
+      `:`<p class="text-xs" style="color:var(--muted)">Move-in steps, first-week to-dos, anything worth flagging for everyone at ${esc(school)||"your school"}. Verify your student email to see and add items.</p>`}
     </div>
 
     <div class="rounded-xl p-3.5 mb-4" style="${cardStyle()}">
       <div class="flex items-center justify-between mb-2">
-        <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="flag" style="width:12px;height:12px"></i> Important dates</p>
-        <button data-action="open-modal" data-modal="add-date" class="text-xs px-2 py-1 rounded-xl flex items-center gap-1" style="border:1px solid #3B4B6B;color:#3B4B6B"><i data-lucide="plus" style="width:11px;height:11px"></i> Add</button>
+        <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="flag" style="width:12px;height:12px"></i> Important dates</p>
+        <button data-action="open-modal" data-modal="add-date" class="text-xs px-2 py-1 rounded-xl flex items-center gap-1" style="border:1px solid var(--accent);color:var(--accent)"><i data-lucide="plus" style="width:11px;height:11px"></i> Add</button>
       </div>
-      ${sortedDates.length===0?`<p class="text-xs" style="color:#5B6470">Track drop deadlines, last day of classes, finals week.</p>`:""}
+      ${sortedDates.length===0?`<p class="text-xs" style="color:var(--muted)">Track drop deadlines, last day of classes, finals week.</p>`:""}
       <div class="space-y-1">
         ${sortedDates.map(d=>{const away=daysUntil(d.date); return `<div class="flex items-center justify-between text-sm">
           <span>${esc(d.label)}</span>
           <div class="flex items-center gap-2">
-            <span style="color:${away<=3?'#C77D2D':'#5B6470'}" class="text-xs">${away===0?"Today":away>0?`in ${away}d`:"past"}</span>
-            <button data-action="delete-date" data-id="${d.id}"><i data-lucide="x" style="width:12px;height:12px;color:#B0B4A6"></i></button>
+            <span style="color:${away<=3?'var(--warn)':'var(--muted)'}" class="text-xs">${away===0?"Today":away>0?`in ${away}d`:"past"}</span>
+            <button data-action="delete-date" data-id="${d.id}"><i data-lucide="x" style="width:12px;height:12px;color:var(--faint2)"></i></button>
           </div>
         </div>`;}).join("")}
       </div>
@@ -1069,30 +1310,30 @@ function ScheduleTabHTML(){
 
     <div class="rounded-xl p-3.5 mb-4" style="${cardStyle()}">
       <div class="flex items-center justify-between mb-2">
-        <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="laptop" style="width:12px;height:12px"></i> Online / self-paced courses</p>
-        <button data-action="open-modal" data-modal="add-async" class="text-xs px-2 py-1 rounded-xl flex items-center gap-1" style="border:1px solid #3B4B6B;color:#3B4B6B"><i data-lucide="plus" style="width:11px;height:11px"></i> Add</button>
+        <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="laptop" style="width:12px;height:12px"></i> Online / self-paced courses</p>
+        <button data-action="open-modal" data-modal="add-async" class="text-xs px-2 py-1 rounded-xl flex items-center gap-1" style="border:1px solid var(--accent);color:var(--accent)"><i data-lucide="plus" style="width:11px;height:11px"></i> Add</button>
       </div>
-      <p class="text-[10px] mb-2" style="color:#9098A0">For courses with no set weekly meeting time — instructor contact, textbooks, and a checklist live here instead of the daily schedule.</p>
-      ${state.asyncCourses.length===0?`<p class="text-xs" style="color:#5B6470">No self-paced courses added yet.</p>`:""}
+      <p class="text-[10px] mb-2" style="color:var(--faint)">For courses with no set weekly meeting time — instructor contact, textbooks, and a checklist live here instead of the daily schedule.</p>
+      ${state.asyncCourses.length===0?`<p class="text-xs" style="color:var(--muted)">No self-paced courses added yet.</p>`:""}
       <div class="space-y-2">
         ${state.asyncCourses.map(ac=>{
           const openCk=state.openChecklist===("async-"+ac.id);
-          return `<div class="rounded-xl p-3" style="background:#F2F3EB">
+          return `<div class="rounded-xl p-3" style="background:var(--surface)">
             <div class="flex items-start justify-between">
               <div>
                 <p style="font-family:'Fraunces',serif;font-weight:600" class="text-sm">${esc(ac.name)}</p>
-                ${ac.instructor?`<p class="text-xs mt-0.5" style="color:#5B6470">Instructor: ${esc(ac.instructor)}</p>`:""}
-                ${ac.officeHours?`<p class="text-xs" style="color:#5B6470">Office hours: ${esc(ac.officeHours)}</p>`:""}
-                ${ac.textbook?`<p class="text-xs" style="color:#5B6470">Text: ${esc(ac.textbook)}</p>`:""}
+                ${ac.instructor?`<p class="text-xs mt-0.5" style="color:var(--muted)">Instructor: ${esc(ac.instructor)}</p>`:""}
+                ${ac.officeHours?`<p class="text-xs" style="color:var(--muted)">Office hours: ${esc(ac.officeHours)}</p>`:""}
+                ${ac.textbook?`<p class="text-xs" style="color:var(--muted)">Text: ${esc(ac.textbook)}</p>`:""}
               </div>
-              <button data-action="delete-async" data-id="${ac.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:#B0B4A6"></i></button>
+              <button data-action="delete-async" data-id="${ac.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:var(--faint2)"></i></button>
             </div>
             ${isVerified()?`
-              <button data-action="toggle-async-checklist" data-id="${ac.id}" class="flex items-center gap-1 text-xs mt-2" style="color:#3B4B6B">
+              <button data-action="toggle-async-checklist" data-id="${ac.id}" class="flex items-center gap-1 text-xs mt-2" style="color:var(--accent)">
                 <i data-lucide="list-checks" style="width:12px;height:12px"></i> Class checklist <i data-lucide="${openCk?'chevron-up':'chevron-down'}" style="width:12px;height:12px"></i>
               </button>
               ${openCk?ChecklistPanelHTML(classChecklistKey(ac.name), false):""}
-            `:`<p class="flex items-center gap-1 text-xs mt-2" style="color:#9098A0"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Class checklist — verify enrollment to unlock</p>`}
+            `:`<p class="flex items-center gap-1 text-xs mt-2" style="color:var(--faint)"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Class checklist — verify enrollment to unlock</p>`}
           </div>`;
         }).join("")}
       </div>
@@ -1100,31 +1341,22 @@ function ScheduleTabHTML(){
 
     <div class="rounded-xl p-3.5 mb-4" style="${cardStyle()}">
       <div class="flex items-center justify-between mb-2">
-        <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:#5B6470"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Assignments</p>
-        <button data-action="open-modal" data-modal="add-assignment" class="text-xs px-2 py-1 rounded-xl flex items-center gap-1" style="border:1px solid #3B4B6B;color:#3B4B6B"><i data-lucide="plus" style="width:11px;height:11px"></i> Add</button>
+        <p class="text-xs uppercase tracking-wide flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Assignments</p>
+        <button data-action="open-modal" data-modal="add-assignment" class="text-xs px-2 py-1 rounded-xl flex items-center gap-1" style="border:1px solid var(--accent);color:var(--accent)"><i data-lucide="plus" style="width:11px;height:11px"></i> Add</button>
       </div>
-      ${sortedAssignments.length===0?`<p class="text-xs" style="color:#5B6470">Track what's due so nothing sneaks up on you.</p>`:""}
-      <div class="space-y-1.5">
-        ${sortedAssignments.map(a=>{const away=daysUntil(a.dueDate); return `<div class="flex items-center gap-2 text-sm">
-          <button data-action="toggle-assignment" data-id="${a.id}" class="flex-shrink-0">
-            <div class="w-4 h-4 rounded-sm flex items-center justify-center" style="border:1px solid #3B4B6B;background:${a.done?'#3B4B6B':'white'}">${a.done?'<i data-lucide="check" style="width:11px;height:11px;color:white"></i>':''}</div>
-          </button>
-          <span class="flex-1" style="text-decoration:${a.done?'line-through':'none'};color:${a.done?'#9098A0':'#1B2430'}">${esc(a.title)}</span>
-          <span class="text-xs" style="color:${!a.done && away<=1?'#B4432F':'#5B6470'}">${away===0?"Today":away>0?away+"d":"past due"}</span>
-          <button data-action="delete-assignment" data-id="${a.id}"><i data-lucide="x" style="width:12px;height:12px;color:#B0B4A6"></i></button>
-        </div>`;}).join("")}
-      </div>
+      ${sortedAssignments.length===0?`<p class="text-xs" style="color:var(--muted)">Track what's due so nothing sneaks up on you.</p>`:""}
+      ${AssignmentGroupsHTML(sortedAssignments)}
     </div>
 
     <div class="flex gap-1.5 mb-4 overflow-x-auto pb-1">
-      ${[1,2,3,4,5,6,0].map(d=>`<button data-action="set-schedule-day" data-day="${d}" class="px-3.5 py-1.5 rounded-full text-xs font-medium flex-shrink-0" style="background:${dayIdx===d?'#3B4B6B':'#FBFBF6'};color:${dayIdx===d?'white':'#1B2430'};border:1px solid #D8DBCF;${dayIdx===d?'box-shadow:0 2px 6px -1px rgba(59,75,107,.4)':''}">${DAY_LABELS[d]}</button>`).join("")}
+      ${[1,2,3,4,5,6,0].map(d=>`<button data-action="set-schedule-day" data-day="${d}" class="px-3.5 py-1.5 rounded-full text-xs font-medium flex-shrink-0" style="background:${dayIdx===d?'var(--accent)':'var(--card)'};color:${dayIdx===d?'white':'var(--text)'};border:1px solid var(--border);${dayIdx===d?'box-shadow:0 2px 6px -1px rgba(59,75,107,.4)':''}">${DAY_LABELS[d]}</button>`).join("")}
     </div>
 
     <div class="flex items-center justify-between mb-3">
       <h2 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg">Classes</h2>
       <button data-action="open-modal" data-modal="add-class" class="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-xl" style="${primaryBtn()}"><i data-lucide="plus" style="width:14px;height:14px"></i> Class</button>
     </div>
-    ${dayClasses.length===0?`<p class="text-sm" style="color:#5B6470">No classes scheduled for ${DAY_LABELS[dayIdx]}.</p>`:""}
+    ${dayClasses.length===0?`<p class="text-sm" style="color:var(--muted)">No classes scheduled for ${DAY_LABELS[dayIdx]}.</p>`:""}
     <div class="space-y-2">
       ${dayClasses.map((c,i)=>{
         const next=dayClasses[i+1];
@@ -1134,38 +1366,82 @@ function ScheduleTabHTML(){
         const tight=wm!==null && gap!==null && gap<wm+5;
         const openCk=state.openChecklist===c.id;
         return `<div>
-          <div class="rounded-xl p-3.5" style="background:#FBFBF6;border:1px solid #D8DBCF;border-left:4px solid ${c.color};box-shadow:0 1px 2px rgba(27,36,48,.04),0 4px 14px -4px rgba(27,36,48,.08)">
+          <div class="rounded-xl p-3.5" style="background:var(--card);border:1px solid var(--border);border-left:4px solid ${c.color};box-shadow:0 1px 2px rgba(27,36,48,.04),0 4px 14px -4px rgba(27,36,48,.08)">
             <div class="flex items-start gap-3">
               <div class="flex-1">
                 <p style="font-family:'Fraunces',serif;font-weight:600" class="text-base">${esc(c.name)}</p>
-                <p class="text-sm" style="color:#5B6470">${fmtTime(c.start)} – ${fmtTime(c.end)}${c.location?` · ${esc(c.location)}`:""}</p>
+                <p class="text-sm" style="color:var(--muted)">${fmtTime(c.start)} – ${fmtTime(c.end)}${c.location?` · ${esc(c.location)}`:""}</p>
               </div>
-              <button data-action="delete-class" data-id="${c.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:#B0B4A6"></i></button>
+              <button data-action="delete-class" data-id="${c.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:var(--faint2)"></i></button>
             </div>
             ${isVerified()?`
-              <button data-action="toggle-class-checklist" data-id="${c.id}" class="flex items-center gap-1 text-xs mt-2" style="color:#3B4B6B">
+              <button data-action="toggle-class-checklist" data-id="${c.id}" class="flex items-center gap-1 text-xs mt-2" style="color:var(--accent)">
                 <i data-lucide="list-checks" style="width:12px;height:12px"></i> Class checklist <i data-lucide="${openCk?'chevron-up':'chevron-down'}" style="width:12px;height:12px"></i>
               </button>
               ${openCk?ChecklistPanelHTML(classChecklistKey(c.name), false):""}
-            `:`<p class="flex items-center gap-1 text-xs mt-2" style="color:#9098A0"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Class checklist — verify enrollment to unlock</p>`}
+            `:`<p class="flex items-center gap-1 text-xs mt-2" style="color:var(--faint)"><i data-lucide="list-checks" style="width:12px;height:12px"></i> Class checklist — verify enrollment to unlock</p>`}
           </div>
-          ${next && wm!==null?`<div class="flex items-center gap-1.5 pl-2 text-xs" style="color:${tight?'#C77D2D':'#5B6470'}"><i data-lucide="footprints" style="width:12px;height:12px"></i> ${wm} min walk to next class ${tight?"— tight":""}</div>`:""}
+          ${next && wm!==null?`<div class="flex items-center gap-1.5 pl-2 text-xs" style="color:${tight?'var(--warn)':'var(--muted)'}"><i data-lucide="footprints" style="width:12px;height:12px"></i> ${wm} min walk to next class ${tight?"— tight":""}</div>`:""}
         </div>`;
       }).join("")}
     </div>
   </div>`;
 }
+const ASSIGN_PAGE = 3;
+function AssignmentRowHTML(a){
+  const away=daysUntil(a.dueDate);
+  return `<div class="flex items-center gap-2 text-sm py-0.5">
+    <button data-action="toggle-assignment" data-id="${a.id}" class="flex-shrink-0">
+      <div class="w-4 h-4 rounded-sm flex items-center justify-center" style="border:1px solid var(--accent);background:${a.done?'var(--accent)':'transparent'}">${a.done?'<i data-lucide="check" style="width:11px;height:11px;color:var(--card)"></i>':''}</div>
+    </button>
+    <span class="flex-1" style="text-decoration:${a.done?'line-through':'none'};color:${a.done?'var(--faint)':'var(--text)'}">${esc(a.title)}</span>
+    <span class="text-xs flex-shrink-0" style="color:${!a.done && away<=1?'var(--warn)':'var(--muted)'}">${away===0?"Due today":away===1?"Due tomorrow":away>0?"In "+away+" days":"Was due "+new Date(a.dueDate+"T12:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"})}</span>
+    <button data-action="delete-assignment" data-id="${a.id}"><i data-lucide="x" style="width:12px;height:12px;color:var(--faint2)"></i></button>
+  </div>`;
+}
+function AssignmentGroupsHTML(sorted){
+  const groups=[];
+  const byId={};
+  sorted.forEach(a=>{
+    const c=classOfAssignment(a);
+    const key=c?c.id:"__other";
+    const label=c?shortClassName(c.name):"Other";
+    if(!byId[key]){ byId[key]={key,label,color:c?c.color:"var(--faint2)",items:[]}; groups.push(byId[key]); }
+    byId[key].items.push(a);
+  });
+  return `<div class="space-y-2">
+    ${groups.map(g=>{
+      const open = state.openAssignGroup===g.key;
+      const remaining = g.items.filter(a=>!a.done).length;
+      const expanded = !!state.expandedGroups[g.key];
+      const visible = expanded ? g.items : g.items.slice(0, ASSIGN_PAGE);
+      const hidden = g.items.length - visible.length;
+      return `<div class="rounded-xl" style="border:1px solid var(--border);border-left:3px solid ${g.color};overflow:hidden">
+        <button data-action="toggle-assign-group" data-key="${esc(g.key)}" class="w-full flex items-center gap-2 px-3 py-2.5 text-left">
+          <i data-lucide="${open?'chevron-down':'chevron-right'}" style="width:14px;height:14px;color:var(--muted);flex-shrink:0"></i>
+          <span class="flex-1 text-sm" style="color:var(--text)">${esc(g.label)}</span>
+          <span class="text-xs" style="color:var(--muted)">${remaining} left</span>
+        </button>
+        ${open?`<div class="px-3 pb-3 space-y-1">
+          ${visible.map(AssignmentRowHTML).join("")}
+          ${hidden>0?`<button data-action="expand-assign-group" data-key="${esc(g.key)}" class="text-xs mt-1.5 flex items-center gap-1" style="color:var(--accent)"><i data-lucide="plus" style="width:11px;height:11px"></i> Show ${hidden} more</button>`:""}
+          ${expanded && g.items.length>ASSIGN_PAGE?`<button data-action="collapse-assign-group" data-key="${esc(g.key)}" class="text-xs mt-1.5 flex items-center gap-1" style="color:var(--muted)"><i data-lucide="minus" style="width:11px;height:11px"></i> Show fewer</button>`:""}
+        </div>`:""}
+      </div>`;
+    }).join("")}
+  </div>`;
+}
 function ChecklistPanelHTML(storageKey, noBorder){
   const items=LS.get(storageKey, []);
-  return `<div class="${noBorder?'':'mt-2.5 pt-2.5'}" style="${noBorder?'':'border-top:1px dashed #D8DBCF'}">
-    ${items.length===0?`<p class="text-xs mb-2" style="color:#5B6470">No items yet — add what people need to know or bring.</p>`:""}
+  return `<div class="${noBorder?'':'mt-2.5 pt-2.5'}" style="${noBorder?'':'border-top:1px dashed var(--border)'}">
+    ${items.length===0?`<p class="text-xs mb-2" style="color:var(--muted)">No items yet — add what people need to know or bring.</p>`:""}
     <div class="space-y-1.5 mb-2">
       ${items.map(it=>`<div class="flex items-center gap-2 text-sm">
         <button data-action="toggle-checklist-item" data-key="${esc(storageKey)}" data-id="${it.id}" class="flex-shrink-0">
-          <div class="w-4 h-4 rounded-sm flex items-center justify-center" style="border:1px solid #3B4B6B;background:${it.done?'#3B4B6B':'white'}">${it.done?'<i data-lucide="check" style="width:11px;height:11px;color:white"></i>':''}</div>
+          <div class="w-4 h-4 rounded-sm flex items-center justify-center" style="border:1px solid var(--accent);background:${it.done?'var(--accent)':'white'}">${it.done?'<i data-lucide="check" style="width:11px;height:11px;color:white"></i>':''}</div>
         </button>
-        <span class="flex-1" style="text-decoration:${it.done?'line-through':'none'};color:${it.done?'#9098A0':'#1B2430'}">${esc(it.text)}</span>
-        <button data-action="delete-checklist-item" data-key="${esc(storageKey)}" data-id="${it.id}"><i data-lucide="x" style="width:12px;height:12px;color:#B0B4A6"></i></button>
+        <span class="flex-1" style="text-decoration:${it.done?'line-through':'none'};color:${it.done?'var(--faint)':'var(--text)'}">${esc(it.text)}</span>
+        <button data-action="delete-checklist-item" data-key="${esc(storageKey)}" data-id="${it.id}"><i data-lucide="x" style="width:12px;height:12px;color:var(--faint2)"></i></button>
       </div>`).join("")}
     </div>
     <div class="flex gap-1.5">
@@ -1185,17 +1461,17 @@ function BudgetTabHTML(){
   return `<div>
     <div class="rounded-xl p-4 mb-4" style="${heroCardStyle()}">
       <div class="flex items-center justify-between mb-1">
-        <p class="text-xs uppercase tracking-wide" style="color:#5B6470">Semester funds</p>
-        <button data-action="open-modal" data-modal="semester-setup" class="text-xs" style="color:#3B4B6B"><i data-lucide="settings" style="width:13px;height:13px"></i></button>
+        <p class="text-xs uppercase tracking-wide" style="color:var(--muted)">Semester funds</p>
+        <button data-action="open-modal" data-modal="semester-setup" class="text-xs" style="color:var(--accent)"><i data-lucide="settings" style="width:13px;height:13px"></i></button>
       </div>
       ${pace?`
         <div class="flex items-baseline gap-1.5 mb-2">
           <span style="font-family:'IBM Plex Mono',monospace;font-weight:600" class="text-xl">${fmtMoney(pace.remaining)}</span>
-          <span style="color:#5B6470;font-family:'IBM Plex Mono',monospace" class="text-sm">left of ${fmtMoney(state.semester.total)}</span>
+          <span style="color:var(--muted);font-family:'IBM Plex Mono',monospace" class="text-sm">left of ${fmtMoney(state.semester.total)}</span>
         </div>
         ${RulerBarHTML(Math.min(100,Math.max(0,((state.semester.total-pace.remaining)/state.semester.total)*100)), pace.status)}
-        <p class="text-xs mt-2" style="color:#5B6470">~${fmtMoney(pace.weeklyAllowance)}/week keeps you on pace to the end of the semester.</p>
-      `:`<p class="text-sm" style="color:#5B6470">Got a lump sum — financial aid, a parent transfer? Set it up once and see a weekly pace instead of one big scary number.</p>`}
+        <p class="text-xs mt-2" style="color:var(--muted)">~${fmtMoney(pace.weeklyAllowance)}/week keeps you on pace to the end of the semester.</p>
+      `:`<p class="text-sm" style="color:var(--muted)">Got a lump sum — financial aid, a parent transfer? Set it up once and see a weekly pace instead of one big scary number.</p>`}
     </div>
 
     <div class="flex items-center justify-between mb-3">
@@ -1211,24 +1487,24 @@ function BudgetTabHTML(){
           <div class="flex items-center justify-between mb-1">
             <div class="flex items-center gap-2">
               <span style="font-family:'Fraunces',serif;font-weight:600">${esc(cat.name)}</span>
-              ${cat.discretionary?`<span class="text-[10px] px-1.5 py-0.5 rounded-full uppercase" style="background:#E3E6DA;color:#5B6470">Discretionary</span>`:""}
+              ${cat.discretionary?`<span class="text-[10px] px-1.5 py-0.5 rounded-full uppercase" style="background:var(--chip);color:var(--muted)">Discretionary</span>`:""}
             </div>
-            <button data-action="delete-category" data-id="${cat.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:#B0B4A6"></i></button>
+            <button data-action="delete-category" data-id="${cat.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:var(--faint2)"></i></button>
           </div>
           <div class="flex items-baseline gap-1.5 mb-2">
             <span style="font-family:'IBM Plex Mono',monospace;font-weight:600" class="text-lg">${fmtMoney(spent)}</span>
-            <span style="color:#5B6470;font-family:'IBM Plex Mono',monospace" class="text-xs">of ${fmtMoney(cat.weeklyLimit)}</span>
+            <span style="color:var(--muted);font-family:'IBM Plex Mono',monospace" class="text-xs">of ${fmtMoney(cat.weeklyLimit)}</span>
           </div>
           ${RulerBarHTML(pct,status)}
           <div class="flex items-center justify-between mt-2">
-            <button data-action="toggle-budget-cat" data-id="${cat.id}" class="flex items-center gap-1 text-xs" style="color:#5B6470">${catTx.length} recent <i data-lucide="${isExp?'chevron-up':'chevron-down'}" style="width:13px;height:13px"></i></button>
-            <button data-action="open-modal" data-modal="add-tx" data-catid="${cat.id}" class="flex items-center gap-1 text-xs px-2 py-1 rounded-xl" style="border:1px solid #3B4B6B;color:#3B4B6B"><i data-lucide="plus" style="width:12px;height:12px"></i> Add expense</button>
+            <button data-action="toggle-budget-cat" data-id="${cat.id}" class="flex items-center gap-1 text-xs" style="color:var(--muted)">${catTx.length} recent <i data-lucide="${isExp?'chevron-up':'chevron-down'}" style="width:13px;height:13px"></i></button>
+            <button data-action="open-modal" data-modal="add-tx" data-catid="${cat.id}" class="flex items-center gap-1 text-xs px-2 py-1 rounded-xl" style="border:1px solid var(--accent);color:var(--accent)"><i data-lucide="plus" style="width:12px;height:12px"></i> Add expense</button>
           </div>
-          ${isExp?`<div class="mt-3 pt-3 space-y-1.5" style="border-top:1px dashed #D8DBCF">
-            ${catTx.length===0?`<p class="text-xs" style="color:#5B6470">No expenses yet.</p>`:""}
+          ${isExp?`<div class="mt-3 pt-3 space-y-1.5" style="border-top:1px dashed var(--border)">
+            ${catTx.length===0?`<p class="text-xs" style="color:var(--muted)">No expenses yet.</p>`:""}
             ${catTx.map(t=>`<div class="flex items-center justify-between text-sm">
               <span><span style="font-family:'IBM Plex Mono',monospace">${fmtMoney(t.amount)}</span>${t.note?` — ${esc(t.note)}`:""}</span>
-              <button data-action="delete-tx" data-id="${t.id}"><i data-lucide="x" style="width:12px;height:12px;color:#B0B4A6"></i></button>
+              <button data-action="delete-tx" data-id="${t.id}"><i data-lucide="x" style="width:12px;height:12px;color:var(--faint2)"></i></button>
             </div>`).join("")}
           </div>`:""}
         </div>`;
@@ -1239,11 +1515,11 @@ function BudgetTabHTML(){
       <h2 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg flex items-center gap-1.5"><i data-lucide="refresh-cw" style="width:16px;height:16px"></i> Subscriptions</h2>
       <button data-action="open-modal" data-modal="add-sub" class="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-xl" style="${primaryBtn()}"><i data-lucide="plus" style="width:14px;height:14px"></i> Add</button>
     </div>
-    ${state.subscriptions.length===0?`<p class="text-sm" style="color:#5B6470">Add streaming, software, or other recurring charges — you'll get a heads-up a few days before each renews.</p>`:`
-      <p class="text-xs mb-2" style="color:#5B6470">${fmtMoney(totalMonthlySubs)}/month across ${state.subscriptions.length} subscription${state.subscriptions.length>1?"s":""}</p>
+    ${state.subscriptions.length===0?`<p class="text-sm" style="color:var(--muted)">Add streaming, software, or other recurring charges — you'll get a heads-up a few days before each renews.</p>`:`
+      <p class="text-xs mb-2" style="color:var(--muted)">${fmtMoney(totalMonthlySubs)}/month across ${state.subscriptions.length} subscription${state.subscriptions.length>1?"s":""}</p>
       <div class="space-y-2">${state.subscriptions.map(sub=>{const nd=nextRenewalDate(sub), away=daysUntil(nd); return `<div class="flex items-center justify-between p-3 rounded-xl" style="${cardStyle()}">
-        <div><p class="text-sm font-medium">${esc(sub.name)}</p><p class="text-xs" style="color:#5B6470">${fmtMoney(sub.amount)}/${sub.cadence} · renews in ${away}d</p></div>
-        <button data-action="delete-sub" data-id="${sub.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:#B0B4A6"></i></button>
+        <div><p class="text-sm font-medium">${esc(sub.name)}</p><p class="text-xs" style="color:var(--muted)">${fmtMoney(sub.amount)}/${sub.cadence} · renews in ${away}d</p></div>
+        <button data-action="delete-sub" data-id="${sub.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:var(--faint2)"></i></button>
       </div>`;}).join("")}</div>
     `}
 
@@ -1251,12 +1527,12 @@ function BudgetTabHTML(){
       <h2 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg flex items-center gap-1.5"><i data-lucide="users" style="width:16px;height:16px"></i> Split with roommates</h2>
       <button data-action="open-modal" data-modal="add-split" class="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-xl" style="${primaryBtn()}"><i data-lucide="plus" style="width:14px;height:14px"></i> Add</button>
     </div>
-    ${Object.keys(balances).length===0?`<p class="text-sm" style="color:#5B6470">Log a shared cost — utilities, groceries, an Uber — and keep track of who owes who.</p>`:`
+    ${Object.keys(balances).length===0?`<p class="text-sm" style="color:var(--muted)">Log a shared cost — utilities, groceries, an Uber — and keep track of who owes who.</p>`:`
       <div class="space-y-2">${Object.entries(balances).map(([person,bal])=>`<div class="flex items-center justify-between p-3 rounded-xl" style="${cardStyle()}">
         <span class="text-sm font-medium">${esc(person)}</span>
         <div class="flex items-center gap-2">
-          <span class="text-sm" style="font-family:'IBM Plex Mono',monospace;color:${bal>=0?'#1F7A5C':'#B4432F'}">${bal>=0?`owes you ${fmtMoney(bal)}`:`you owe ${fmtMoney(bal)}`}</span>
-          <button data-action="settle-split" data-person="${esc(person)}" class="text-xs px-2 py-1 rounded-xl" style="border:1px solid #D8DBCF;color:#5B6470">Settle</button>
+          <span class="text-sm" style="font-family:'IBM Plex Mono',monospace;color:${bal>=0?'var(--ok)':'var(--over)'}">${bal>=0?`owes you ${fmtMoney(bal)}`:`you owe ${fmtMoney(bal)}`}</span>
+          <button data-action="settle-split" data-person="${esc(person)}" class="text-xs px-2 py-1 rounded-xl" style="border:1px solid var(--border);color:var(--muted)">Settle</button>
         </div>
       </div>`).join("")}</div>
     `}
@@ -1264,31 +1540,199 @@ function BudgetTabHTML(){
 }
 
 /* -------------------------------- Map Tab -------------------------------- */
+const NL_BUILDINGS=[
+  {k:"A", d:"Admissions (A405), Academic Advising and Success Coaching (A415), Financial Aid (A419), Information Central (A310), Counseling and Psychological Services (A311), Food Pantry (A262)"},
+  {k:"C", d:"Campus Police (C204)"},
+  {k:"F", d:"Classrooms and labs, floors 1\u20133"},
+  {k:"G", d:"Classrooms and labs, floors 3\u20135"},
+  {k:"H", d:"Student IDs (H201) \u2014 connects through to the K Building"},
+  {k:"J", d:"Art studios, with the upper and lower kiln yards outside \u2014 connects through to the P Building"},
+  {k:"K", d:"Bookstore (K201) and Subway"},
+  {k:"L", d:"Library, Computer Labs and Tutoring (all in L206)"},
+  {k:"M", d:"Classrooms, 200 level"},
+  {k:"N", d:"Classrooms, 200 level"},
+  {k:"P", d:"Classrooms, 200 and 300 levels"},
+  {k:"R", d:"Standalone building by the athletic fields"},
+  {k:"S", d:"Classrooms, 100 level"},
+  {k:"T", d:"Classrooms, 100 and 200 levels"},
+];
+const NL_MAP_SRC="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEBLAEsAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQIBAQEBAQIBAQECAgICAgICAgIDAwQDAwMDAwICAwQDAwQEBAQEAgMFBQQEBQQEBAT/2wBDAQEBAQEBAQIBAQIEAwIDBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAT/wgARCAEsASwDASIAAhEBAxEB/8QAHQAAAQQDAQEAAAAAAAAAAAAAAAMEBQYCBwgBCf/EAB0BAAAHAQEBAAAAAAAAAAAAAAABAgMEBQYHCAn/2gAMAwEAAhADEAAAAexjE880WRiAZJ5DKQCOR7i4s3MlGM9rpUQi8wp2Wy68lMWjiwL19g7nYWOhuY5c4ggCCAAAMTGh6iRGrzckn1Txu3In91c7b9bY2mBm9GAAAAAAAAAAKylCbib20xOLQlLdxeJVk5S2WLN3DQs4r72ra8WMr59gkonzGuAK5AAAIrIylcrdO8w1/Q0O8dHA9AN+6C6LiPbFAzOlAAAAAAAAAPFx3uJkjDOVNHIewpMkSEb7KmecQnOSDiHKSMdLlRs8sHI1u6Z4SFkBj4p5RKpcX+50vcIlFyvXupazqqHQB0G/rY+pOlfc6W6AiJbsuQclKS6Az74AAAALS0DLdFnvWc5UtVJkoiuyObi2pmm5tXpKHyknFEO0mahrxzDzstVakYi3qFSd29d49UV7euGmeh5ZtXQq2wNNlM5EcGvLByOosYDDxTrjUO01KXnp6izt0A+em4AAAAAeM8tE+35GWpvaJdU7B5I2W+nsBPR+9uE1+aSfsqRmq3yaTKNqRbL5167k8t1PptVluYcRnes9Oa/ZSKyd8bSNbDktvxb2rvNUYbM1jOhPd78XdS1AtlXtEffTa2ee+0sldAPnruAAAAA8rdwZ6d7g6+dcWTtDnL1V6qfrf0VuD3UnLYW0+Xrxy1vW93XrU9E0zyu7tU16yuekNicPT1JU93U64IcAj61sul+k1QPGer9Km11Yy5e6ofc5y32uNyOY+gpufjV8oBT29djZ2C9fZe+OE5HiG5hgb0LKmOblZuoi01nQvIzjaRlLjcoqYoGIX5/9ncj91LYGqozp+pl7kjrLnwCr5Q1L9CtWddGmdr646YrrR9nWn2FoZcbL5N/nqLt9P0uaNwargXXJi+WuFrb7Su8Oc+sVUc9GuattJhiZep87bpaNdeNN8ydP09E+nGLKKN4SmWpk1KVn4Cpaaz5z9pVc9wk9Ca97ZXWXz/6cycaE29zLt6ud2w3UjuR0biuGHqjN++HvQK11PVd7xe513prrhv56k8n2Po1FTGokbtZboqjs+Ga7NfidgkNYqDnM8uNWwugvGlzGKmHQp8Z4nhSM2LNhIbaY7rspWYCMuSuweaYFZzdlcdy9Yj6soHYeo+fbSN65rblecZtzHt3PXk4998kaZpFWArXKZhc4vstU8dtXXn++GKVe6VWZ4KSfdahlZszz3pD0OePADRDls60siVZOI7eTSSyCCMdm+IRq7J9nGKVw5uXPr0nobX29uO4tzU9h7xtNjRu6RTdg5Spg8M5DuuQsCgeFtgAJMQ8Z3pSEC3n9tAjZhT3LTfPQqXwCrbAAAAAkI9xppA4ZO9JIXiZiFs3Hq2bm6diqJcJrFwuCu66VP7+5rFZqPRF+mb4E3JoSRVdE7Hf1/PZz231y0UJAHFbYQyZW4Zxqdo9A0C6h75+0WPvpBIAjJAAAAAAAeMXTzezlWMrFaF5y/iHUhSSDppStMknJhYMnyP1gh2uw0Ft69cf6aTr/AKo5t7IwaK+0ncnMos5a4cpslsYxlt4k3AtrLs4Pr8OH22Gaai3wCtbAAAAAAAAAGtlg5/oU5OPW8u3vZL2HWaLvJjUNJvmHudjgFe3hyn1YhozgbM3yzKffFvYwYVp1n6doWXtkkKAqpYXSXMLFXFBbLz8vcM4yQCMkAAAAAAAAAd5s3e7mknHLaV/xu2VoWUsAw8MAipEvSWrFYI5ACCMcmMpNZt9btPWa1DPNPlFvgpn60Qis3dNwBDQZeZ2zmSjSXvX4pN4jCbwMXUcNzPFQ889KBjPJIsF45BAQAJB54nKVkoDZADJAADWESa+nc+8s1N8mIuntPtnDrhQDDyxu4TlqUPPYycsVW9y6s8bI3DznJN3bOe5ZI3T0VOQq2WjpjdxiYYA2QAAAAN3CC81YIiQsY5RkAJmcFFzrX1TRRvlvY0q6/Ow888zIgeZ78AAT9zQnLWWRVlqguZN48l9cY2LE0KwbtvoDctJu3m13LzzJl1LBZKClUbqtlmY5NEAEMUXA+rz0GUpYOCQpuooAm9Ru1Z61VWYi5Tl9gipkgw8uN12C9AaI89AEFsfJi6Fz12Lzf3E4eKteqeos9xraB395LNWThpC6mMAMXE8TVHTRyURkqWPPYSAAgAAAAAAAIrDqadYoqO9SZ66lWdcgtJ5LFxgZ+OSXhKWAiJElU5Ksk8lZ6uH4Xpnkf1OxId5fP3eWST1MB5tdDZJbu62NkgGtjZIZ6xNnYSz1w32dm4erzaOKRrg2OpETrQ2WILWjTaMVs4unMdzLeg6TSfm7HFI9qqW2Nn55u9bNtpYw3dcGySMWtvNlBlrFXZBMc13w/wDSSN3Z/Ojp/orOC1rQ2f5hT//EADIQAAEDAgQEBQMEAgMAAAAAAAIBAwQABQYREhMQFSAhFCIwMTIWIzMHJDQ1QUQmQkP/2gAIAQEAAQUC1HWo61HWo6zKsk6MlVVVARpd1TbJpeDbTjtJDpYdOCcQlRMvQu11uL1ydn3hhxbndUrmtzrmtzrDUh+TD9X8Y0QCzFYUqcb0IwzvU6+LKbch+spEegIJLaDtu9arklzcNu7kYvIn7r9O+GE/4PqCiV5jJljbqQ9uE2KMMRtxCcXQMVoTp2UubD27SfYkzkyVz8vUfxuv9mcv9O3ExHitmfE4YT/g+mIotJrfP7UUHTckLHiqFSHtxRRIzDBK2UkSDhG/PI7y56oiH+XqP43b+y6MMME1bfTe+2o6I7KI5Ic+zFFx1x+o8bap59HybEYzUXcQ1Rgybjvg641JV6SzrN5MnOo/jdv7LjZ7O7cXBEQH0m/yo+RA41vKDnhmxByQf2Yom46+rbIMI48ch3yRWYzO4pKjkuY0O4IC5CiIDrXfjiRyQ3abndMN2u5iSGOsVq4WiHPpML27P6Vt1MYbtbJIiCnB+QoE3KreZ62vywl+yUYdyQ6xuohMNatasE00z9yU4qtRQ0nMN4xYajj96Yv3IfwbLadlgoOoaGu1Iq52crtGgYFtkN8IMcKREHhM+XSWan6LJ5SCJBR0t83rjCgrEvEO5xykRHUaRnLZeJxx8GUPWSxfKDh7rjaJGZyVUcV3drbc06S4OPstVMu7MRiJidiY7Nm7bQ4ntS1Hu9tkrxc7O+i2AON3G5RGRveJpr00jV0sGsA1ZK0DQHtpwbccbUTYbJ15X1jBuOy/EAUi4SmGbVjqSQ/WmpH8UXBwG7hcEF6bMdqxfzbsOu3PYVlCa4Wl6oN0ctM7hITJ70f/ADxdcLfOkYffgxr9JZajvxMTyrdCax1Fccoi0UpCCf58iVbb1bronemxBkXiEG5DS+CajvtO5Hnl9gYsrRHgOvyoloixXr1/UxME2Z6HiHDL9hWrJIWTa6kNbg+jfmprttl2i6QxtmB7zcQX9OtKz8CToy4Xw+3Bi07+PGd38TJw3id2O7je7eDilCukFnD+NHwev2L1i3q13i33YdSZXK1hc3PpsM2bNCBrbp0obFc2tY1eCQ7VIjuRnLhkP6e1hQs7fwkt6C62/IFDo1mWSOPMK4xk6iirZYjxKVlN/GMB21qREuHbLKmjcnZsiZeL47d2Yc1+3yVF3RaIcifcBTIZOvw27iLJrVtYgvTzTq+ZaZaB+2FZ7bIP6es9fT9oqJCjQQ4SyTRWhqvDLo0VocrvwJk0i50OsnDb8/inUrJHRukxuFEmy35si94Zi2zD0SK9NkwITNuh3C0wbq3LwVPblTAjDJk4iiP4RwlaOXwE09E2x3R2X9P3Kvp+5VLIo9mmXOQ7IkwpLeGeaXKsNOyH4NPSNtVVSKvDyK8OXhiDKtLdJklamqOQ2DRPiqx5IIUrztL84vYsaOWgLcton8vySsFWjaZXgnarvheBc6tmEZo3VxxttN8VoHWyrUo171i/3ixrO9EG32KoemouB4MuJiibboNl91tkTwUFx0WkVVIqQSKkFEp1xXIg6lpGJK0kR9adYAFNWgiMx47wOt6DRVVdcUiJW20xDeCvVzgXKbbHoiWLEkrwxRhkY3SNcYNyhXJrNErcBaNzbBVUl4NvG1SEKji734W7Kv8Ai+6TeHMrFYSYJ14WqIiMvdW4xFSIiJX+opOMRY5yjdaR9x2S2jTju5uMkBUYA4iM7D7gPuVj69JGjYaW1Ddrq/AlXK1yp0W5QMcx2qm4bnO23BNrG2W9RDM5QpSqpL0Rz0mUWNJTlVsrlVsp20QTZDCkAKjs22BRyXSoAJxQiglIgp0F/BldmIfwi+d+avnd3NxoxPg4Ta0JEC4osN2Yk+9IJErKJhi8SHzlysNRbjfZzrgOG66Tq02ybtBHaCjZaOjiGlLmKrTfdeDzyNIRE4tNNK7SAgJ0n/Bl92Yf44BLuzRPekOENA40QunTrgqYNgjeN7wq1YrG9e5eH8JS7ddMWSIcWz3fDtqhYcw5a0w/a5R5lS+3t0KiEhQwWm+D0hAoj1EIGdBEVVTIOv3id3ocBcqX9vIlh2Y0uA6MYT3DUIeaO4nxAxZwedelyMKWVLRbsYYl1QmAvmKpOEcMPDdHyQgkCou0XxH49HypVEEdkk4rcTsIAPpf6kM+38eRLDUEVzUJp4Z6a2KDRGkOLimRJnQsEWZZsq4yWIVvTGA/TGD7Hye13W6RLczGxcl6ukjIo9R2twuj505JAKRHZBtsg16gApxEGQ2UncWozrlIEkKfTU2SiUBoUJ7FlxcgQGbhd7nHs9tatcC7Ygw67Mg4EiMXaarYx71fpd5PB9sGLb5Boq5KqgKAPEu9SXaAFMgAWx9R2mmdw5i/cZaJgWYwOm8A1Ly2kPOtTEoI9gg2ufeLiUaHjDC9qgN2uDGsFoxtiPxMS0247pOQQiR6jpm/xJcqdPZbRFVWWkaGvf02xJG0qGlAm9Jmn3BBjMxUU5EglN9RRa9qjti+zj2TOfun6fWJM8Zbf03eLw9em7FaQtFvlEquA2TittC0lbg15yojbZolcfNlhGvWddLU63+3idmbeokReadNzzhr9x5Mn6yUlJ4WmhjtXCPCZYjRcdXvx8/C1sOdccs6ca10HkT7q0QtinigGlkPLwjKis8E9Rv8Lq6oUBc2YeTbsjNuQ+G822e04/uPVppHGABNI0ebianhZmYLnNu2y2xrbHzStwa3Epw1Csu9JmVIw8tMt7QUvt/n09G0sVUJmKu29JBW3XBSQyy+rVO7D9GROdKrlWZrWjVW03WScH11PIKvUEdoeKrX3aDNSH29Nc3gilk9LTQ7K8zEVzST7Zb6qi9K50gZdPtQ5moigD8a1DW5nQplwLoESKhDUqsPpSoQ1qHpEiAkFt4pWvd1KcJW1yJ1SHoJckFMk6ZK5MR/z8NA9C/PgiKRESHw3z8M04TaK6daxpoWnTTaVM2E4obg0rjy+q46LSOyCcGP+de1e/T/AN+CcBEjokBIzeWluRFAfGQqaejuSB+MTLT6OXW/nv8AD3ps1aUSQx4rxBNR/wCHKzVEbc26CTtp42vEopiioIOE36Kdy65afcr34w18nRlSLnwPvU+4R7bGu2MZs2rHi1y3M3fFVwudYOu/jIVCSivahL0B7cNVZrWfHUlSBRxG22dxdVOMqdK24lRm1bDp+PAcs8Ty4cW2JabkSPwpcVLLZJF6ftNgt9nTggmVZZ0K9eWdbfHQlaK260pTobjerTxKkXNOr2KsWibtghEpQ5MSLJjQ/D2J5twHW6AdbnikbWiStytQ+tJb0HGd1Dwy01uJ1KmdCudeWsXWFmBTLhOA/ari47gm7bjXBH0VOOga0JSL6jgI4HmbJp8XOjTlWfSVJ3R5huZGuR3S1ySutyMYkp2FJgzWrhE619/UlfmoX3gpJhU24LqUootCvfiXsPxzUVxpZ0mQ+GC7t4eT6Hca1ivDLXW2NdxXpddFpFVSXjFaIeKfk6E7cBRDTEVq5VcbVh+43dbThq3WrjyWNXJY1cljVyWNXJY1cljVyWNXJIq1yCJXJY1cljUtkjKg2WNXJY1cljVyWNRWWPp+nYeaYchZ/TUBa+moCUNiht1yaNXJY1cljVySLq5LGrksauSxq5LGrksauSxq5LGqbha1XAkskUUSyxq5JFrkkWv/xAA3EQABAwIFAQUGBAYDAAAAAAACAAMEARIFERMiMhAUICEjMTNBQlFSYTRDU3EVJERicoGx0fD/2gAIAQMBAT8BvJXkri6NgmLnCqXwI2fzG00wNuq6vK/S2pxscqZce665cZ7tyxWE7huj5vtBuWGOuFJ7wDegavH+xe1HTY4qm5zbxFUKhU101IcN5W5AY/dOc+oc1GxUsNfe8oDu+pTp8jEX9eSsJ/Fd5kLm0dM62l7NbnaeG0F7WljfBetdvCipQfbFRDbeTakNfmj0hYH2zDHMR1OKDkpWDS9YjDiv4TJUWKEUE66DIajiafZeG4O5ENPEDQKtW3gtuyVtStCnBcuXgKv13qW8U3W+STnwoPNbIfcuxtIGADarmm07JjuR7gJDIYP4umL/AIfusbSuUGPTFsTCIZ2DX3/6zy/evu+6xjD2sJxN2E27eI+/oZG42m7h48kTzheWCBuxuxT8RlxnB0+Kdxqa6v51z6k0w4xB03FKwSZEj9rca2fYlhcknPJNTmdePZ3a+W1/ko0Vs/MNVjRz9FpWV3JzaoxN1IQerlStaUrX5D71jcfDMPlNUwd2+labvi/94KQM1hz+YAhzT4tFtJROznwZtUnFdE7AUCWc69tMsuQ+0AP5g2qHAdjO6nTFAbCRsQM58m1pj8QoWGvqTzLaEBFramjccO0k+dkkK1G4aeqx3EIGJvtlAast9fd/x8lxFelrjPNYrjj+KWvzaUGg5+nzrlnXxQSor3BzpJbjhIIMlFfCOeTQqsF2LGkS8SyoNQ2ZFTlWvhlSlfksL1nHbyU+Z2cbW+a8x0lHM9yFlm6gnyXlUC8BVu5aVtfsjLQCpknsDMMFpjut6/8Afp/km8Ok1iBLfZrQDrlQvSinYROgmITKUtrnlWlfTL3fvT5J15ljcanzzmFb8PTDZ5i5oO8VLwwn39S9N4U42d9y7K5T8TUaUQym2h7PApmSbwd13zZRplmPGGxkVGX9Sq/h+jp2inqVFrza+NUIO2f2KDTGMcwmuHtujRlvLLP18MypTP3U9fH5+CxbFJfZKFNcqR0+aNxyQ75ijQ2Y4p2Kw9zTmEmJ3x+kycLI6bXNNxJss86qLEZgh/f1YV/B5W7iZL4kF1lc+VEwbrrlxLFMJxGK+32wLb/RYdEwx1hxqa7bl96U/wB/f9kwJRAqdHK0pX18cs1iwhLYKo19FGZN93THq442xvcV70z2W1tMRQb4K63h3GNlxkgt7PX6UWWwfevqTW5rSpyTMmfir4MTXcz9KZ/dTMNcjy6Mu7vfStPCv7ZLFG32X6R3QqJLFZGk12dtYS15Or0u0g1TTYuYlJ1XPZoREQV3dJsTG0PhVB2tguN71UZl2W5BdxTnmU0267lSa9CqEup3Oj8/HxWJ4y/jLwyZQ0pXK2lqcwzWlazpbVaDQJzEojSB/wDijmkfBNti3sBOd6NzNsldsFz5IqiBWnwJVsZb0zWvZ7MVrOLc5z6bFKNye8Udr1FN4R+sSjQWY/s1pouXebKhuC5TkvicFX+Ta8jO/untFYYHl63UOgD8ZpvQc5Kxq1aN3FaB9NVzvzcQe1CZBRMQGMxpqJLCV0DoXswVLGvLTTjdBHctYPqQnbaXdJWdZkB12b9qpzBdnlGsNYkMyd49eSb/AEyTlXM8lu9Ol58e/eavWJNbRkh8Kac1Q1A7zlLh1aftVV+eXSO4Ijb15d/tBYfJJqnBBiUU0B/T1FByTgk2VqDporRWktP6lo2KwloEtA1K1Wg2IcJkv+dcm8Cd/MNMxdJuwVpLRWia0UbVXG0MdaK//8QATREAAAQDAwUIDgcHBAMAAAAAAgMEBQABBhITIhEUMjNCBxAVISNBUmIWIDE0Q1FTYXKCkqKy8CRxc4GxwtElkZOh0uHiNUZj8oOzwf/aAAgBAgEBPwHhNx8uKOE3Hy4oMVqj9cZvNqMtQO+UagGlDCYrclBqweBGWHQ2cnRheyX6bhZqDyXQ+dmGam0+a8LPYrJMTCz3eUbUO46eT+9qF7WmzcoBQ7aQzRF0BbMGFiKMux74ccEkFhLDhhIYUpt8now5Fl5r2yNGauPuCoRMwFya7kOwhBpD8oKLMnVLJpYZWEu2KC7tU4AKSCspUgdLxi8X6wA8hUDsgmAQyy/BdbpB80NFUOS5+AWdqh7MXEi0S5KHQCbKz7godv8AU1Hp76PvsqDUucgDjgggtOXdlw6d69swthCloHbMsjMF7oYWF5woClVyu24oOXqjiRqp2KtlCzZuD7QoAMp2Im2tkrCTbN6UFgv1RYk2BCn2ul/aE6ZCORbypJkAwQ+Ts4Zzyz4rXNCfNxr1bYIM/KaWlFTNVgIHlPoGaXpbyBmUOKcRqfS6MJCFOdYC4UlmoNcWKz6McKpYVqxqhQysjjUC8La2A5WHiln1jV5k4JsXaUUsDYuRbP54flaFqRCth09npQpTlPTaERZgk5AOYQcECRnKM3QkWcyBLFYFpcX6xK+V5TVn0dEVsaNr6/NAV3ZC/EZv3qTihqGNdVClzK1AcMNxZLw2LExuqmbhgihmksHL2hQ2oCmpLmaPVxet6LDhDFSuiA5oNTFmcoKM2UA2N7cPEX2RKAf8X5u1ps/NlBx4g4LuG9nKLRiq1zKmabMOEoQZWQSnOWSeScpz885xUyRzq2l0xTcTYEIejzYZChxa3unjAAXBuhQsUOLk1kcpbsw2AWJzSiUPfJvww7uD8UeJiCnurfm7v/aELUU3tQUVr/tCWoHM6ZhOcQNxcDcJhwoEMnXbULuWGScCC3JAaZdBDxw7JgB5cuNzt+Jp6qSFanVCwC9aA48QO0LGJhREneGNx+oH+qGGt1jq0zUqAgBBFVKRn2CFARfP3QJofKxqZQSeLHx93Z6MUJQqtuXiWPAdXoQW2U6bUahY1hDNYSHjD1snFxfjDaWseEhhj4mlIwM8E8mSH2mWdwbxrEau7GXpCCLD6wYUmJ0q36LpQsVHlBhOmVnAvDDYIR5srLu9qF5gSjSwH6UsULV5Sgi7Dvbkq5yXUiDhHYFZB6EIWctQE3OWyxhw44MbEdrIoTXX/mD+aCWJmOF3z75cPzG2HiJtG7EJUKRK1GZuK8sYrHWs/IoZl7g4ry0iydsBgfY9GGNIUSkMMy2Th8VuFq5VRlPqFTidbNFq/r+cU4Jc17cLhUsz6UZDBulEqiAEPPGLRFZ/Tn9X90PRyQsIWamhCPvck52eOc57AZejpCy9WU4dKIf2sGcLkxgA/PQg0g0nShFnB5ARBFBpBoJhNMHEzyzjSyU0uPLx8XNz5ZzlDpdFkWY3NaE7JlufOZf0EHvij9mMqMsjASTFMLVQQKyrfgoT0+xAUFJVoRCUDla57MGFMxCAS5Cj0DLPH+6MzKPUcvoaNmzHAg0ht2VqZi9YEMzWZNRczxT6VmzCd4Km7dj1xhlLu/PNFYtqF6UltoZzHMGXikLjL558XP8AzyQ6slJPLRaT5SzCZSDKfc4snd4+7Luw2Mat1W5ozEjPiiaMDThGeuQrawXuRgMjdHoNANAY/tBVk0GsCHbD/VAFxaP6MKOFiRbMJDFjoO4aUgjR9UM/xhu3Mzyv23XB4U6UOxlxfV85Zwo3VG1tTZpTqOynBojHgD6oNIUVDWCx/VX63lfg9UEUrr1P2Uf7oB9jBoBF0yK3pTOxfxIJNLvxAtw9Ls0SCMBp7PpRRBr6gWlEW7ZijFMItgG0Kfi80Pj8iZkShYPWAhhqFpNMC9mpTJGjnOUxTnLJPuSEKUv5TlDshJe3cqnGWUgSNFjydCXGIX/yX1wgbG2mWq4byuTLiqt0B/qVQMJht2n8mGGOsqkp8f7OU4Ojsw07s6BalGjqRPZw7EL++sEUHucqXs8tzeg3aD44VVbRVJpszRjBal3CisQvdisaxVPq2+WbOgVsF+l0xwcecoHeHb1N6Sv7EcDXcTe9y0NAfrf5RmxYValhUas/GX9fPCQarg44BgA52nyhyzl3Q5OL98Mrm4uDhn60fIE/NmKWWt2ZHPUwZFk8M5fB8yg0TjegPJJvJTni4ssOLgiTFZmSSAJeXIDDtT6MvP5oTOKlgrhGqEDWZChSnpWTOfJzRVD6ip5lOclsDxDtbzUzuDgqzVtJvFHwwNuYqE5R5yK3TyXgy/tOlPzQ4PVQVOdfuB/JeyWCBqiU3JIfb7RhMKRJlTgp1dmx7UIZI+xw0wyRkkwtnKHx7MLLjIhSmFmCO2MUpCl6WSMkg5ybIMtHF47VmKazc5LwYeHlAmXlnykujAHFrGoNJQETLmCVoQP75Z/d5oTuBfB96lHMM58QgzyeLu5Ya0bSAoVRKcVj+WT80bnraKqqlU1Ut4yih4PT/wAAxu1PJyh9KZ/BFB94W81N6lcrKTpg8sZoQ8ODduW0uFob8Tkbtc/pz/JGGzwm5YxD96FCo5Tp6PaqmxMvSDRtw+9dLojnBKW0lakOxpz+4NqLySY5e+qO6DAH7v1nDkvUm0eFUDwgscIDFhpmZk44Z3hKkXXBBd4YEOQc/u6UEpgPJ8yghslT8Xiis1iBgJ7HUZghWuMf4e7KG7dG4DpEtkYiLKrymGz6fpQbfuSu+VG3h4/Xhq3NaqX4iUd31jocWce5SgKfCg5wuMwWxaBeHZhxcVrutGvcDLZo4c8JoE/QD21KYF61qUaQoNPHmCRyDLvcdkcvNoThUclQqzUy7vRVx2utB4kTE3GNa4d6SPVhDpQVUeZBsNiYBfvQofHVTgGdDJWdRNYeTHyfWhcpz1TnKs3HFtH0Io1A00jThNROoQyGcG1o8fUCGHfdwsGXTMj/AIkVJXNQ1iWFGus3UJG8ZyksqFZt+rMN7ZqUhcXAhyJF9KDrA9OXSl5/HBeJW6JbM7ApZfvswBeUUxhSP5ehodIULVhq9SJSdvF8kVnBkDMGZrN5CnztaSl6Yo3YFxpbqlYCu9yCgRfEHd8aUDOwXRMIMKi83kSVMBNwgu1fxQ1E086FnX5N2MAbWEUHtzLcFKAmmBvIJZSFZtyjVYvWjsdVeVL9ve4XdAhu84HAxjMxmbxJPhj9CDzr4e/uf7mrDwUkfnDlVAsfVDFabl6iq6g4VKU3ZdmK1odfRqkADh3hA9Ee8h113AwCLFYHCvlGhHY0ccEmNzOca2DDjECzMz1dmGZzQEJE4ZqQAEEIpTyhy7UCfG7innhfsQmWJyDSFJuhZN/9kGkmE4TO0W273qxmKiBAGDTgBYx6EUG+ha9z8JhwZiMJt4f8ob92YXCFy6EAuuoON1l+YHOlCwJDwjNEMNnpb4RZ4XdD1kNZgR22tRomfHG51TqFcWY5PhMxHlisBt6OGFNN0i1nm1GqJDL4fZipVLWsej1TPqBQhXOl3miXF6tqCTLYM2Mgac8GzvgVKCw2ADjFGeqg+EgaxSPDbjcmeib9VSy7VKg4fSh4albK5HNq0PKAgH0gu6HpQYQcVrN83ly86DpRQFToxpAIjw5DRjyCFzWsmHL6WTJ9cHpSVyUxCq1YpZJy4ueKhZj2B2NbTopt2SI0wiLy5O6dm1vANNL1YoLHnfIHaXbEHnJjgKCNMMH0uk3TKWRvCnkl1jT/AKocNyas0IxXZF6HqQLO288aZQH1YGUSYC9T7yMVlSCG1ZmC/Hq4ph0C6t3K64vCP+r1o3T6a4Ua+Fk2uJ+De4FUxwKpjgZVHBph3fGlA2U5Jqh44Kb1hwrpQODGJUWZd2o4FUxRdDlvS28czOQBCqsGinjSmgpOKxZh03UyUwbCBLynXh7A5vzoa6rLF4ZCdoU2DY4FUxwMqhSznnAznaikXVYxgzozFIOAXWDs+z+EVNUtRv1pPeXSfoB/NHAqmP/EAFIQAAECAwMGBw0ECAQDCQAAAAECAwAEERIhMRMiMkFRcQUQM0JhgZEUICMwUmKSobHB0dLwcoKT4QYkNENzdKLCU2Oy8RWDlBY1RFRkhKOz8v/aAAgBAQAGPwLlHfxVRyjv4qo5R38VUco7+KqOUd/FVH1XvAlN6lYCC22an966LrXQnojIOZwAKkqrntdcUVeDorGirjzQLPlq0YvdWfspCR74zXTuWmvsi3SzU2Vc5pwGLaNGtkpxLR2btniVSUmp5vJPdztty5OVmFYf7CHGXpqeadaVYcbW4pK0EajF87Oj/mKj9vmvxjH7fNfjGH1TDzjykzNlKnFWiBZT47/MeTftbR8TFw6AmFJVfUX0NLSjGSKcozguuDfT6otoVlGTgsGtnf8AGCVHMSaEc5UWEAWgMMEN7/hFSFKB1rVk0dQiuclP2so11iFIWkeej3iC0vRX4JZ2g6Kvrpi/EXHv6xOOtLU24icK23EKsrQdoiYefefXNLcCk1GUD1SbZWutdm2sFUwq2pPBpUFrNTVtw2P9IHHMfzf9ifG5RfJpOH+KrUn4xrW4s1IEW10t0+6iLuTRo+cdsKLmsW3Bt6PdFEAWP3wrmCsJXLFKWbwrJgY7YLir7KqBJvv2mKNU6Vm8dUKQsC0BW4ZqhASNG0Ej7K/z9kNrGNCOyhHvh7+Ke/8ArbE7/MGMu6iSW6sWnAmWeCydeaBCOCOCJcynBiKBRUkNqeCdFISME69p45j+b/sT4wqXc2jSpis+SICRRNBcOYyI39a3DFnO81pvXv8AqkW3SCRelOITviwi9IOr94YJVedJfnE6vdASElYXc4gJqL9cCzmsWbNG81KdteJP2FD2Q0P4f+smGqml590PfxVd/wDW2J7+YPe21Xd0PF1I6Lkj/T4u7SNyYsamk5nn6yrti1pVvrrcJg7daua2NgjpPW45GTobKv3SMVbz9CLa9LmjmtwEovSk5oH7wwpS8cVkeoCLKBmV8KCc0A++CElUuu1ZsuI8GfhCVeDoLlGtbt0ZRIQaK8GVHNAvoCOuELdcaQ0jAquUK0r7IKhe26baFg1Sdo7/AOtsTv8AHPeBawpuTSc9zDKeaj4wlCAEoQmylIwT4tBxs2l9iTCVzDAW0bwtKQoJ6oL7Cg5XFNbxdS784CFpOUVVdB6rR+sIJrfz1nBPQI84/ecXFmlxwaTr3mC64U2qXr1J6BAQhtVBog3feMbT2ZRUKccFoA68FKxJhHkpe0hpHr6oSvEuA1rfSlMIyYFKtkUxoofnDrSrirPA1DpEFKtJJsnjeVLFSTlGw+pJopLRWMoR1eqsScxwCuVbkTPz0rwkJSqSptBHc9Wba7SecmYFLVsggUhK06Kk2gYoM/7Atw0Xmnw4lsVdZTnfZw9sUtzydecQn+2OUm/xE/LFotuTBGAfctI7BT1wEpASkXAC4DjsIpXFRIrSKPUGxYFB1xyrX4g79uuBNg/eBEWDi0soMJcbOSIOfZ54jIupVmprlU4or9CCtkh+0upuzQNw6oKrVpRxMZVSgFLqb7lXc0RQ3Uv2paHxilLzqF619MZ1yU7NFvd0wG27iRZQPJ6YaGwlZ7PzhobEKPbSnsMLGx33CAocx4oO4n84ytMxSaKOwiAlvwizzUmOQV6aY7jfS602XUrK2nE2xTGC+Rlr/BtzKUzCUdVKVgCxapgFHNTuEUSAnddxNfZV/b3zhOOUPqNPE+zogKwTNt26bFjEe3ti0bgItEXC5O2FqVwlLyy0XrQp9Nr0MfVCJhhDc6m9DywjJKQrZQiuFIQFZViwKJsotAdlYXkZpCnVJsovsqT1QnKpXQnPXaBu3xk0AFQwQMExbrVWsHAw5MEHClBeoAY/XRBWAc7NbGun1WCVm/TX8PZAB0nHB6zDQQPBE+ENK8QXYVYVoqpcYwPZxeEcSnorndkLfyTq0ooKUsFdSE3dsZFuWdSqwV1UoWbqbN8LmX27Dcs2VKyasoo4fCLzMJ3sfCLLU41aPMX4JXr7x0f5h9d/v8Uba8nknrQVWlLQEW5iZZYl089xyyHD0bYmBIcJPJ4PqMjk0dzHAVv0sawpxay4tZtKWpVtSuuGXAmipl5brh8qiigepPFh2XQoYmzmq0VJzgMRvj6v4s066qTzVGMsmtXEcgAKorjfAuKWxgk4q3wFc1q/eqEvtKFlAzwq8DG+mv8AKHHBkFlDSnQnJkVsiuNYeadVKydKKTRhb5VXHDdCk92y9CLC6yLqtVIdOTQUWFqQUKcbFBWhuHRtgETzwqipIcFomgOFnphLbs264gvpFhbttKhaOOaNaYTeg+AVoWdjdcIm0VpbbsV2VIhwMzMsttCrIU6cgtWYVaN9MDiYCe6ZM3Eu55sopsNL/wAxtEL4OmX+6ZNDmSDp/c+cOjo41eeAr3e7xQ8+YqPupp7TDCJUuLek7bLrhbsIIrhffca9scEzHClj/hzU2lU3lWu6GwjXVFDXdCm2JxifbCR+syyHEMrOyi0pVdujgtiUsq7nDqZpl1NUO1XaT0i4mJRvuGYBeWG3zlAQ0SaCz5Xq4gaBQPg1A7DFVKATashas284A9MfX1+e6CVqDbTaC484bg2hN6jCu5HwpYvU0sZN4dNnZuugJTpKuTCWqiu+9XTCyrye2JtIqtapVaRdVRzDQQUvS7qLaE5rram6i3CPBYWdubycG9fIKOhm6CxjA/U5nk//AC7tqtANkS7bkvMNtKmRacQ04goTnmtVJoMYyzK5hRCSiq1BSL6agOiJ/wDlzEs9McNrZfflm31N22UZO2gKpQ364ZdDyJyRmbmJpCbN+NlQ3XgjHilVqNVITkVH7Gb7KcVU6aL09O0eJ2nUNsTMvwaspmkNZNCkqsKWbVXbJ1E4RlpyTfbSoZRTihbCaqs5x2k7YS84lvg9hV6VTdcqodDYv7aQEHhB9eFVtyaQ2P64UJSaZnFJ/drQZR1evNrmnthM1OMIVPuqygyiApcoBogbDrPEqEcGsq8FKG1MEc93Z932mBJ8IvvPS6wGpZRbyzjSq3AnSp2wOB2lUmJwZafKTyTQ0G/vY/7xLcIuSXCEnLvEKk55bK2GnKiqcm50jZDErwhLmbU4sMtTLKP1mqjQBScDvF++DLsNNzMtK+Cm86ilOVvDatVnDpNYtSrxywTny76vDt9VbxuitYbcUpxIQ3k6AJIVfXXAOVdzdHMbzcPhDbZk5ZRbSEl11oLdc6TGcVL3m6PDLl2f4jgRH7fKdToiZLRC0vS+YU32q0pTfWJmXnpV9M4mykZU2VMYHOFL6pjg9p5ScuH0KQ2pYLiQXHCm77J4nU+RNn1pTx2xorOd0H8/EOP85Pg2t51+v28SMqgOItaBFq/UadGMWnV2E6kjSP10Q2tKCMkSb6Z2GOd0Q7V20VqKsku9ISfo4QUqFDj0UiWlpVth+ZdpMTaHxaShrmI6CrSrquh5+Xts8IJohEi8LececleCkjG++CpRKlKVaUo4qiY4RYcdYXIZ8kppKVKdfTnAX3U+IiZd4QtidcctPh1GTUDu1CODJYy7TDPBvBsvIghpszDpZbDZUXQm2QdSSTSG5uWKUvtVyaloyliopa9cd0KbeyTiykTCm1ZJxWJFvCsS8vLLW0sqtqfQbJYSNJdYCLylPlXk6r4mMnaymQXk7OlWzdSNLhb0XIatVtZJNquNaQZGTWWykfrDydO/mjZFpWcrabzxSbTqC42uTQFJBpzURlXmC864c9Tkw445cLiTbP0I/Yx+Kv4x+yD8VfxhTcq3kkKVbULRVfxhHOUa7gOL9sY9H84t90NWaVtFFE9tYudll7n6GOTWelHhPZF6HBvbVGCvRMIFM5K8opIvN9fj6o1+jAydoKGgbP19CHHpi9CbkJHP2RROSbHNbs1guNJyb7ecpKOd0iHuEZ3NblmUqDGit5Z0UdZrExOzCrT8w4XXFahX3D3RwZwixNB3hNOTHD8r3Wh5Ur3UjLS3gxnIokFCrWKqQzKMC06+5k0dHSYYk2eTYRS1rWeco74sTbCVqAzX9B9vZZVq3Xw03KLTMSzztnKrzHJYa1LGwbU9giZRJrcclQ4UMOOiji0i4EwxwAUT6ptnJpbKglqUYsvOuKNpKvCA5S5K0WkknPpdHdj6bMzO2VEq/coxQnr0j1RcR295MvlDNHn1uJKplCagm6NGW/6tuNGW/wCrb+MUS5R2XkkpWWHM5NkJrQ9WMTDvB7vCjMiillDs2p9TINBnq6TEv+kDPDHCZW8tKFyzruYnOUhVCOkR+3zf46ocdmHXHiZkpQp1VsgBKeKyBaXjjQCCpWJ4v3P4x+WA1aFsKt+bpWqRe7LV2BwqPsjS9CXPtJEcpOD7KgPfAPdM964y1bSFaNnnQTlpwVOAcTBBVMqCiBaeIUgbr+mDZIVknAVgXkbYTDjnNCLG81w+tsMM8Ld1Fx94uS4k1DKoUE6ZBuKRcm/yob4USxlZJyoU4yoPGXoaUdSL09ca+2FcLPp8I+MnKA81HOV972Dpj6+v9uIkUzk2T/vCnEDuOcN+XaTVLh89GveL4QjhBpJk2PDl1CrTM3fmoG/XXVAtC0Toppj0xfLpp5rl/siiHChXkOXRnjrEXRIbnP7IbMxN9zTVs5S4uVFTqpqFD07dht8LKQALrLNsm/dsv66ajXhOxWz/AMOds10qWkUrDE03w05LompVp11kBDiEkoSogm1trjhEj+jPBs0J0sOZSafSoKSKFSqVF1SpVaDCkUF5NwAxMS8udNKKufaVeqKnE6KdsFSsVGp4s1C1aqpTURVOadqbjFdeUya6c6hiiUFR2JEcmlP2nIvW0j7IKjCg9NgeSE5znoiGkpRlGlYZZOGJqRthRyRbWFWFX1skYgfnCkaxdWli0Pq6DMS+J5VrFSerXFVMLC66Lbl3o1HshSlFLbEsm2tWCE0x7IenDUMJ8DKIPMbGHWcTvjLyMwthfOpe26Ni04GJdl9lXA3CTzwSoyLeU4Pn9osfu1HshDaGxkUJybeSFyQLgKaoflQwiZ4MQsILrRpMFadJxBwI1AHUMb4y0nMIeQNPmutfxEYp9nTF5Ai6q9wiqgLRrRI017zBUo1UceO42k+QT7IyjeGuJD7Ln9nHPWtH/hy7W60iFrOXUhQshlGUS0itL6kWjT282JjILnHX12kykvYUUJJGZfQE307TvhM7PJo6L2GDfkz5SunojavUj4xaUaqPqigzjsTnGKuXAYpBv+8cBAAqAMAhvN9ZHF/7n3w0WkglVC4pV4RXXT1QbS7bYSQrNCQDqprhtLjzocC8/PqiqcQBhqhylfCpLprqN8S4RWyVHK0F1OmHbCbNl9SVeedZiytNfdFW3RQJ8Ik3rSn36oSLaUC3nlNbShCOBZZVHJkZScs8xrUn7x9Q6Yt8NBlUi3wfNOBL7eWQp0S7hZoi0m0q3YokkVMTb/BUoZHg9xSTLyqjyeaArWaVIKrNTS1SsSrnBv7blQzLpshWUU5mWb9tadcTqeGG3JSelUuJcl0+EamXUXWB5Jup74mP0ncmJRLD3BaOHCw0EIIL06ZbIhu1aAGlbs2dWMHhiaQe6OEQG5ZFM9LJ+bHcBBWpCBrwzUxRoWztwQItKNSdfe2Tou5p36vhCe6WGny1mpyiLdmP2CV/BEfsEr+CIfaaYallPtZEustALSDFXZiZcAxvS0PZH6pLpt/4iRbWfvn3RdRsebertiiBU85RNw3mM7wpGNc1tPu7YokDqFhv4n1Ru7B1cav4xinnpT6xCztd9yYCvtudv/6hXmse2sS9itkrOVphTph2ymzYeUg+cdZ4jMpvyiCygUs1voVewRbCyFG9R1K3xMcKzChONTP6y682LKpYHALRqAwG7iS22m0tarDaRiSYacnOCjPZBKHWm5p1cmC6kocDrS04gKTTXUV6pmbeoHJp9b6gm5FpaipVO0w3we5NPngxqTTLTya5vcrb2WRL7i5f2xbFEy0snJsgXJu1j3RfcjUj3niuzU+WR7I0bSvKXnGL0CvlJzVR4NVvoVmq7YooFJ2KurHSLxCztoeOmKzgPeYqs2ujmjcOLyUDSV7hATSyKXNi5R6Ts9sbsANEd6r+NFfPSf6hCh/mn2CKasiUjbUFMOlJ0mhmnDWIllpKrClWl2MVClYK0qTZ0lc2m+EoAtBemToJRrgUFlCc1A1AD69cKeeSSMG0HNJ/3gcFNrz10fniD6Dfv7IMuyvIoSi046UW0IPNu6T6gYcmOFG0fq10lYVlGn1HnjdsN98Pd0NNvrd8HKMr1OEaY+zjElwlwe67O8IPSsi9wjL5X/uoTDRIVZpn5VYKbrkUAvKrmWlJHd82e6Z2t9jzPu1sjzlGMncL8osJ0anAfXRx07O8ooAjYRWM1SkDWNIQrycE9XFZRRS/6U74KlqFo46ozEKV00sp7YGUO5tu8q64ATSowpoN7tp6e/I/9RSKDSUzd9ofmIcTaKrVHQT2H2CK81K7eHNVj7+yEujmXK3GO53BWzenVd+UKQEuKUk3+GIrrjJpAabHNF5izcQW/JwpSkSxybkyt1SwEtkZJBA5x68N8OPOEuvzDttW1alQgKA7pf8ACPq6fywhUjwUJpZc8LMTzbC0sNtNrsFTbmsW6IKxcMKw1LBzup2VllFJeIbShI8pW0mgqeiHZzhWWclmuCTbyb6aBx3FNNRCdK7oi2pFhQsrKiKVBJsp331pCjqcvHYBxK3QmuNm/vaatcVOakRYbtAG67lF/CPCGnmINO0xRKQKdEbsVHRTF2BxJ0lfAdHiD/NfCFt+Sbadx/P2x0JNfuK+H9sB0X2MelOv4xklXlAurzk/V0Cmik20/ZwI+uiA6EgKC85QF54lurNla0lZOttIFfUPWYkpp2a4PlWVMpnpTgYvLPCbzLqlIbfVm5Pm1sBVQk1hfCC0pLcrdL5RNW1LOKvuj1kRNzEwrJsNSyrRTpYUFnpj/s2vg5ThRwOeDpScti3LLcne6Xj0oWkMiz5TQOswkuopPToD0zXSbHMb6vaTBdnKdztlOUrWtSRZAGvbDUgzJuKlyFeECrJFK1UeilOm/CLQ5qxZJx0qezitHQQcPKPe+b7Ysoz1D0U7zF5rTX+7bi69RxUcTxZ3oA0P3jq9u6N2iBclPiTSlctaFTStDSAtLS6jzcok9hhlWSXXJ51hNsg7DAZMu9Z1LWmylIpgYBDWSKcFLdSgCGFvzKEZlk5NGWtnzeqFWVuuDC09ylaw2lWFqu+gJibcShSnXP1RohFpDQUL1q9fXSJX9H0rYcZVYlW1mTb7sDSFFxLan6W8mgqUqzWGJRoUsIv2q6Yf/R/hYWmqJyr6v2ZtzGySL0kXZ0S0+1Npm+C0frDbK89ZVzBaFyk669EOOvOhpphJfcWrRATtiy5REs2+txhvnX4WzrNPaY7sNlUzwiKgi/JNA3Drx7IDadFvHpP5QEjFRsiAlOA7yyPvRkkGgGnT2QEJ/JIiynCOjyjoiLqjzuf+X1f4radQ2whnFLKaHYpWs/XTFhJyd1oqRcRCfCOCy3nBKykb4cddcXQt6BWVFPbr1QElNec4tWeoDedcS0ogXWrR2gX17c6LGamtTTAbvXGaaKF46IUh4JSoJzq0pTX1dBhc9KsoadeRZok2mKVqSlGqt2uJGysS7nCPCUvIWrdFoS64A4pB22a36qxIr4Ffdn5/hbhpwJCprulWReTbl0q88X2ldMNSynUpalGi7NTCzRFrFat0NcHybc62xMLtTL8zJuSiHgm8IRaAr5R3CGZVNQgm2+ocxAx+HXFltITYQG20jRTqSOJHmgq93v7zpi7lF4fGKCqlE3DWY2qOkYvwAtKpj9fGN2AGijd4tb6RUgUaur0FXVF0Oq2qCB1CvviuItlZ3JuHuhLewZRXTqT74JVSuks7TDryiSbNwOCa1+WCOa1mjpOPv4tEKEJygJsKKU30qmA0/LusSMsnJSdseDerpL2X+wCF8OPowqxIWuxxz+0dccJBx3I1Smx/mKC0lKOukcBS9qddVwdwWjg9aZl0u5V0POqtIv1hxCdubDLK0jupxWWfcwXUi8bhcB9kxY1IFR011xRPWo4Jig+8rWeLGu6PI9sZxqo6sVmCqwo80UGanorFTe4cTs6Bxb1U9G8+sp7PGLKFKSlvNQEKsi6A4uyp6qfCJFitVDGK+eo+uFUINGk+uvwizqDgr1ItCGU801UeqlPbDg2oB7CfjDvSQsdY/I8VhF6zAZZWABpP1xOunxhxmcbS/LlNApwW995hmWleQl0ZFumqkDg5hdZTg9RCyDc69go/d0e2EPmoYklhxShdaXzE+qvVF9/SYz0W6YEKsKiyhlQH1rjEI3Zxi04q7aoxmNGm25EHPpXUE6O6PfrMIpzc07xxj7NfSJPss+MRfaq3pbYt7GkuHqoTBGxw167/AHxZoBVBbN1L0/SoS5tovfS5Q7ISpF5GejzoC6G6qFp531hDLrTVtCm8QQFX7frXHhHm29qW/DOeqFNttOm2KKUTYUrrxjMYZT0qq+rtMUcUVjyTo9kLZacKEqSUpUOUarrSfjB7nmGnWlOCheVYeFTeTqNPXCGJZJDac4qXpuqOKjxYxdAFoW16FrAb4JVW3rKtLizUqV9lJMckR0qIEWcTW0riMK+1Z9HN93jC1/hmyPdBbPNJQR0G/wB/qhTSteZ1p+IgOJ5xtjoUPj8YCkY6be/Z7opQls4jnI+tkZe0uy2ckUBNnLHGm36MZ2iMG08mnvrkenGeqvQLhGjxr6MwdX0YB0bJsrcpW1+cVpbPlLzuO4VjBMC0Amz4Q1ONnO90Dd4zKYutiy8AKWxqUIA1OJp2Xj3xbTiUhwb0/Qi0NRSsdtPfBbOCs5O/WPfBSgGixbK6eDb23+vrhIRybYojadquvvaJ7Yridp72uy+B5Tiuyt8BCcBdHRGkO2M2p6uP615v93eGyLhpKUbKE9cUS7LqVstm/wBUclX7CgYzkOJ3oMYjt70LTcoQC2vuddalHvRGdWwlOYbN1+N/VACULUbAaw2c7pjwgDST/iYncnEwlsVS0hISAdJdNvjHfs07bob6Kn1fnx4e/vE/X1hxpQMVGzugBPJJ5NP9x6TxE1zwvIlWvf2Q+Qo3NWrzavrSsZzgV/EQhXujQlj9kFo+owEWVIqDeh8rHrhZtTAsio0FWr7PvjOdeSdhbSfZx5rjifvVEXvOdRsxv16++r32drwSNIwUWAlJxqbSoR0gj1flF92+Lu9+vO43SNTBp1kDiNkaOkomyhPXGYtLlHklak4VwiaJTaAZGbhXSiy4hNsE1uC69ZjRT+GmEZJu+yU29Hpw6sYc/hj/AOxMOfxf7U+Kqe/crqoBuoPz46qJUfONqLSOtOAVAUnBQr3lfr6+PHY/xW1NdZvHsjp2Q2j93kkrRsVXE74cAFQ4izjSzQ1BheYlaXE2SCqzt+MBKWAEjVlq+6OR/wDk/KA53PnpFEqLuFeqHP4H96IVRNbRtY08Sro8Qg6y2a9R/PiqAojaEEjjWnyV3dd/x7/6ugO+WaODyV/njHdE46UMNqogBFpRKuaIUzI1kZY3Wgf1pz73N6u2GpOaaMxLIWo5UKrMIBFQkD7XthTTRMlKG7JNK8K4PPX7hBkHlVmZFNEVN7jWr0cOziqAk5tkpVelQjkUfiufGKK0terxB38V0X/CPdr48YQq20iyaVccpjursEIq+hexCWVqBPXSLjTeKeqL7zqWBnRoKV0oFoQbVylm0Rs6O+6OIpVchzMUfJPNV1Q8zwg064JmsuhDSeeBUG1gKYw0Uyb60vN5RtaG7SFgptQFTMs8wFKspLrdi0RC22XGmkMgKfccNSkHYnExVhJcmCmyuadvdV0DYN3HmNrX0pHFQ6vEYnj+qRpH2RiTxKRt0d+qAvWk2uzjtDGK9/TUcOKbUlhMwpqyHrRoptNc18dKcDDLg/SEys0BYVLFymTaQaMgE0FxCyRW4EXQ3Kv/AKTyLiZQ22V5NJtVTok2rRs3dFMK6m+FZThNM40hxEtMMBnJuOhypUNI6ISTvCdsIdbUFtuItoWMFA8SUVshWv3QW0s3NmzpBPFUYiLwpMaQ7YxHja81z26/rfFg6aB6Q28eb2RrHiDbSFtqSW3WzeHEK0hEtwhIsIQxLlDb7bYohSa1bc69Ew28r9H5VbzrRmJBTBbVL55U5Ry1hQbMbN9LxD7w4Nclm896xZstsJGcR1fCF8EvKz2QXZSvORzk9WPXx+FYDyhdboKnf3mEXXeNKDr/AKY8laDFNFfk7d3eXd9WBD0q8m2gtqFny21aSerEQ9waucmMmyLDWfRDjZGaRvTd6oUhU9NKStNlQLpzhDE2waOsOZRPT0QxOMcm+i1TWg609XiLXb43/livaeLStDzxX1xe0D9lcVT1jWOMp2d6ndAUnSSaiBwhLI8LKoLgGtTXPR9w37q8auDHleBmzal64Id2feHrHidsY8V9QNnEAb699feo6KdZgqVepWPeKWrNtAAJ13ca+/UyaZ97dcLWz7wuhbaEkSr/AIeVrqBxR903dkBTLeSludNvZrX3fK6oS4lHdM2P/FPipT9hOCfb08fKzHpJ+WOVmPST8scrMekn5Y5WY9JPyxysx6SfljlZj0k/LHKzHpJ+WOUmPST8scrM+kj5Y5SY9JPyxysx6Sflg+FmLvOR8sctM4V0kbPsxysx6SfljlZj0k/LHKzHpJ+WLnZkXY2kXf0xUvzZJxJWip/pi92b3W0iv9McpNjc8PhHKTZ3vD4RmF5O6xX/AExysx6SfljlZj0k/LHKzHpJ+WK5WZ9JHyxysx6SfljlZj0k/LHKzHpJ+WOVmPST8scrMdqPlimVmLrtJPyxysz6Sbv6YaVOIW/kl5dAXZKQqlDdT1QkBx8ACgSCgAf0xysx6SfljlZj0k/LHKzHpJ+WP//EACkQAAIBAgQFBQEBAQAAAAAAAAERIQAxEEFRYSBxgZHwMEChscHR8eH/2gAIAQEAAT8h9IgggjCPJPAENEYzsgoLI5KoXZOf1w1REIIaig+tpgauM+E2peIg3R3FuzejnBk8OiS/ZhXL8YAKefmMHlKQw4WaMAafSNsJSHfOLp0FHzTIIX2UOVxXZZ0kCA0kTpkXwKeJqQaiYPGPLrUaIuR/MdhzwcQGPdmL+29Muh0khggSOUwBNNTV37sl7ClJH/EDBQSOeVD4GWj4GD2JTxQeAE31PSjZLkp83kV+oLBToXs3cv7R7i9Qgnl0G8QHRK5wHpcG9c1HAa/GQAFu1Mq3ASy5CIEiwBqX61LrG6ckpAcgWHw/uBIORPxF6ER9pkSzNK2D12KwZYxy6BCXJ/KKk4kFa0xr+YsA7k8Wnu9R7ZM99Sz3dp5O6btSej8diRG08INhlgQA9UvwEBS2Sd7zFFCnUpI0iY8xzod+FcK0TdzF7Voa5KZPmii0xcAAuQDne9byxm/Zq72dmHuQOVx9G3RtC/vk86M6AAVLcg8Ao8ErHkT4BQxtodE/KdBYxeZsbvIYWFCG0DYZsAO+WH2FAxkpCIxD6AnTEAT5bKBMguCajb3lVvA+RoPJbsfoplB5KCYOHRs4nB0qHNyLQNGThUXIFm7iVN6GI7I/7U8BWNYAUdxRyZ5Mufp0s5ZWB2Iegnx6jsmhRcRQyt9TN9YEWFGxOwu33QlijG4RGpa88sGDMsvSJYag1Hr/AIaxl5C/yBfoYhFFHkApUaCs+8xy7CBsHRwRWZSNaP4CxkCMmBEpJdyl6XD6eJ9n6hJAABaOiEqLdtaXpWORuHZjT50Kwac8MUoTQAjdiX0KKlZyfddaA0WkGIBtkyyGec42YEXRJklBbRc6MwwzvJ+uuOMQcJuWj9ziubzA2F+m1KzgIC29XaK+EBeeEOIvwyTx9IoDNeJsgPnWgqY2JfkDpMfCCYhQELBJtg1IufWJJP1AYhKiuHdwwb8VgXxCXS1OSQhBC4IZB/eVZwBi71PFcR2oMzzoe7rhU81fCkrhEMGlLMEQ70DJmMmhsWkIo5l1ZQVF3SrTxhnsAoeewACVULu9OVb5AA3mqGfBGmKUpN8tFxvg/ZBd4f6d/S8EislRIXssbhDJKVSZWyygIRBkQB5UerM5gNGyQLTR0VgQrxxpIsBAxLg0bIsANSqYS83PiVNCBqIgIJl4OxBKf9X3N6hehdltg0ZGDVsEuknDZXkbXcuFgjORHLIO45zbhuIdGEichFyIZkBAA6cGsXAp8A+GnpUCjFC6C3QB2uMLCLgMBQhEw2dBbuAcOeSpL+CIOq7Ggz5DcoGt0gmQMsTIIMXyviJPU0o2okhpAEjZgAwTaji0I0Ei7uDbDShoCZVdZiCRR3IIRACN0kWZSKi0ZEQ7klVsGym32jas2fUR9HIUnNfSQVVRKvJsvSXCJ6TemicGbKATFEPy+MMiwMrIEcIxYwjSQZXX2Hrz9DK7Z7BQPwdsDcVNmP08PiMCIYG4XGHadUIVORCQWiiQGqjkBCEYhAozEEgMJ+Z7JSr1xiYIbz3sBu0FgpOjY44hYY8ehGqos9aMACYax80i65OUVU7OtVU4N+y534KHuQfkeUOy27CcQf3Cp1h7sNdQ3+cBIkingdXAgiYWbHgEa3ITFnKAmov2QYALeIzJ0FMbBKiwhgLA6OsHmiC6LelHcbynI7YZOAAOK0Gcn7sgBMQywAEzS3ew5MPRmR5ULDgzBze0QsllpwKmu4hJ5OEakqRhy0GlSxBAyJWXuiuU8JAUPElkgggfUwHJD64P5GRVc6ndZYSaKZuh5HgGVdIUALXoHqfB7cG6Ued9lWNYF507TAESgBsRZFvWOAiIVnUm02QjsYDStm/OYQqVIJrE4JKY7RLxctMABxFSWNl6DzBDgE0T/GWE1vVmNKcOBLSt5IgAQGtEKcvw/wApz4IqUcBCzj121YFJBlCwXtDFVJLoCWRdlwaa2AloR8YQYDgA+FBSDmCwvFYKCPQn8311FDrQKyDOw8jMbAf08A2T4bFI/WYX8VZ1sD9IrsY0IYugIyk5Cwbu4CZiW1mKIi7QoE8Ae3RafTBn9lvfLmpcoYMV4QMjnor4lpA+ItTbLAtSN7Ym1GrLMSOlJ4Lscl+L+RiGnwdAjQBM1oDmy+uLF8MTQDXZyIARzALJDYQRMKdEFhhCMzcBQLx8Ok7MnBlAaDZeiyagPFTeICBBAMmzGilNizUlmlUMoGQp2FIgdhSiSELDkadMtxAtR44kAFidIs00A9HyRgBUxCGHmNFz54maSWYlAKEAQUkgEh0+7gAodSI6AiEnU68QMpFjXGGPilJIsyGIMdNJZCC+O5pQblF+LwQMIHMw/wBvCM7HkC3+1n078X3kjRL0SXX7Dim7InnC8GcRyW0aEerH7ulMwRniP8FFsqfUjU+afW5vR3Fg5jQ2A08o8Hja3qxm2buqOqGGxwBpLCepfoNNwYNTIEgszQI5aAEBIUlinDWvMT/pPEIIV0SDQBlRIKK8BnLMnIhdksqtkwOiIOi5BVxAG9H6H6wmt60DyZ/WOKFoGJAHmWH44o/AzPCFXHR6MGECW3o89z6r+3Imf9Pn0WTJnCQ4DiBRAgMnQJhSDzlVBAj/AIMiQDpuhHIb0efFh4C/KsY0G/D2/TIAF0CDhBTPtyAwRFCJ4zoIbwRkQshnTwAUkE+txZpcjRDcjzigB0ABQXAABGQEYRoL9fQQ5Whplv8AxHbEQqdY+Lthkw8JozUeHMpgi6/470IgbXx/Yaa8aaWLsU0A0iItRExS78XW3yDPp+mjPgN1i8L4dqBz4tMIi3KSoG7RQC4EngDR12ASVtwM9iOZTEfLwtvQWYwc1SVmQwMhq6VtVB/JsoCGcDljshXMCcO06rWjtyD8iB8A9fSHBWcggS6IemMnzyp7G0xHhl3OKnMNZWPQiBQbg8R5qmYrLhnJRdCyqhn4AHL8UUlpDqXwgTiAUYYhGky4j3jRcCNQpKiQbB6Eui5RA/3pwI+theeph+cOAkoqklSkBKJPg4WHwTNKNSc6DNdo0opPwiN0RcxUwBWmaHghzYRC7pa6uQ++LsQiAUVUXMJEguQNfnfGI11PyJ2ekUgzeVQoIzyN6ECCThPLtTs8vsAel/a1PA3/AB9utXhNyK82KOEQkIjWa36KXcHmmAKQA9eggm8WARUm5BlQnEZeZ04EA5AAUa3h/qQEmQBK9sgJRIVWJB4HRzq6BKhFvCOqdCMJl5ZZPmqAJi8xoM1IEujKrzX4/DO3GV6/LJHgJkidH+T03qDZ5916wKEFRBY3rM+WtJES0wgOe5cQzv8AFeXPjjlVGAf6CD+0H4Wk8FjyARGblIN7huoNjkKorKk1IAWiGzcE+IH/AAsDwWQcqsYcs8uTdGvdgKsg7gltqLiWWkpGWoeCqAWix7ymzgL7Rwi34yLnz6PXBiFD0QcFiIkXCYeaErkdsTRSyKXOpwPqvnWbLUM1jxpgpq0PZ85RTriLIbFeZ6je8AHakKokohGRcQAAuKVv9cDZsHp8lXoZvc/GrUiOUGcxEs4GULAUE7GKBJaOs9rqU3whgag/x3rS/wAUKpr21KAMtRj8ZmyaEWrtYTXb6fUTfkk/va7pdxB99CDjX6qwRGjBkdsXeiLhJ8GR0gDhEBIhQbzz/jUcwbBzkLHyK7A0czGV3wFreveGxhHc23cTwJEVFGyOYD8hSdL0SiHKCdp/709oIzNFsKicH20mJXH/AJQQkMIjxkO+DFqdCpElmupS/SgmkVx/NQaCh1AzR6eJEldnWBAdA6Jt8mF3o4dNFf5KyIleBEEy5J9gUfvsmAwGVbeJBf7TeqPgX2UcAYwmBI+6KhOzVxgk9QVY/wBTTN9wY0oT8mgsjJlSIERps8wsxPsq4dJE4jKLGcEiXf50FamHnNKT74jwm2XD1/LxdBooLjnmHNzbl1UtSUz6hERuAPs+zLGSPSe3tejcinAhXG46K9ZjAJyTLMg5ljUxvaoiGpsCdE6IGaCTRhRGzy/AKeXqgQMB+Lj6ZuUWWiQ4QPsV6Eetu9WL1MDDH8tWohM0gwPAZIKTIAhFgkQy2ezSmJzIEXCtlbWSBvkPmjW2fy9Uwu62RiPwRKxsUNkgKVnSzwRXX8N67Hg1H5AEI0LRH2WJikWqdWv3gUv4c34/SpokNH+eARmfbYohAIaHPTeBgiPswiAAQiK6IfeQhcIckU5D4j9egRZQBFLAvV0q3Qk6q1qXV4bo9w+E6Sv5fkIIN0k221LYpH/ID0BzqKEC6WPmU9vaRxaFH33xkLpS+EMoQDJJg2OSnI4u7aUmtBJqTPsIoegzcU/FEqm/AsRM66AEm6gGfcyeSKN69QDIwVm55vhCABBqm6g2IJdMw9UyQSJV6HsInsBJMBUhq+wkDA9xJTkSi7upECAEEiQDKRlYoaGXCuBABLS43LgNZt/uA+yZppDBjERn7BYdb0m//EeqFYFW1iH/AOnRdSOqpvmkFHWDjTEjCACgDyhefM5nJCw85TYtMQTapz2ZHuprYePLGu831ISAq5tMTEFv/NRu+MmjPcYCGT6OfJfHERVVz9UwhAIsnaA2rrfI9NubiuplkkJAG9Nu4N2KOdnOwR6bs6+5AbYPyC9wIySMG5J7+lEIBA1af40DugSZt3u0pOGoJ/UXg1tYAle0AFChQoUKFYTlkKIQRhq1aqQA0ByiTJD12ERRHsAEKFQAUKFCtmTFk2f2N2N3o4WlzRmqdO//2gAMAwEAAgADAAAAEMMAQDGgVhZyAAA2msAAAAABlvPG+Q6QAFiIRwAAAAACqfg46xQDBTziATQAALk/jRgrJVQSuQABUQAABJrG4nb8DD1uazkiwAAO/FBV6qhGTFLFkwKIptK2oS92E1z/AOvgdhGDNHRc7AKdcM5McZkdsxtFRPzggIYCMOAqlEJ6IBCyAoy7bRUGEJKUiEIABMhCk8p2UHEAipyIAAAASWvAOSexUn7cCoAAAADkvTOlHz7biEMaAAAAAD6dMIA8IBZPhoUJsw0oADCEAQEACJeQBMmPwF7ooAACo4MTM4kABdsPkCXMMgAINEHYgUgBJZtAA4CBAgAIAANUwo0AceOYAMMAWlM89wg0tMMGGLAf/8QAGhEBAAEFAAAAAAAAAAAAAAAAAXAwMUBBUP/aAAgBAwEBPxCAf5NeIXlp3NJLMQlUJa0jTTrs8mrLcz/o3WdfH9uaXNdfpBtIAhpbLbzMYUIvcFQVS2kpk+ubzZALBIPYIqHzIYs9NP4L9mEQWqNkyuFSaW/fLZyWP5udlGbTxBhwFtaoobO+2IaJeEHR1VGADxJokdsQwj47UfhGE8GvI+S1o0XT/GrJNHSHURLQWxHq5ier3jy33AHY3oBywBfT8hVWWzbNiBWHduxl8yzcM4N/FF29hUYURqnUbkOfTFafBo//xAAaEQACAwEBAAAAAAAAAAAAAAABETBQYDFB/9oACAECAQE/ENuZ9a3EM+uE3IsFOxKnxIkeXD5V4BaVBQb5LSFLThmfXFiwwlDiuCFayypjrnD1QLLxZWh5bg586P6B2o8vN/WSTtNhZtwb4oUAsx7zzUuc1CWvWV3UEPN2l/v+3Zechhk7iqD5IHvNLy6k0EJmvbMz2E/nDIbICI7tO5rblnGVzvTsUmHQaTRuOpB385ARdLgm4mHWSOYDFH1HFkGzCBM6XNuBfw8sajra3HJMQrrKIWMq7RASvx5F+qNnoRaQArnQjcgChfhsW5DLRRFQ3O8Jax4XuSIwrSCWpBsP2kOIfSWudwgnYi726zQddWqNKUP0ZNvVmE/mkYOe/HgFSvVFmRHs47xGKm2j/m+wlZoBvx8CxFn8C9fRx365qaHMqqugM8aJ5zzuQjzd990Tym961gwangag1RkSmwwAdEh9z0wdPA3brr8d8NbihD4dJbEPnL3ap9kGHXLv5w9a7ix+ssTR5lhCCSdXKqA8MAzLNZ3IDXPD+tejM6xzlQb3nU/DYnSlxkcP8Cf/xAAlEAEBAAEDAwUBAAMAAAAAAAABESEQMUEAMEAgUFFgYXFwkbH/2gAIAQEAAT8Q9v3333DdJNzYmBaW3dSESLE/YNVUnFHYN99bfglvdh/WOc5pukjCmhTLJP7QEq7nAhfEd/rD6zYYWAAUimM+/RZAuNwxUYKV65NIPXe88ZDxtFaSpRJJAiN5vzaAZ8ou7M3cJPsivCAuXxrvaIxffgu3/rtEZupHbwXyQb8pIB3zHVyiVQBVeb1F+/DRgLQIiwD34XOwjljBblh7DFlzLlXP+kZ8Q/T+jcNfOsOo26K6xjQl+ru8g4ohpjoL1He0p8xxjp+jnD0DLRG+3gWKD/t6FbDhQ8uCJNhcne/xfKzBjwHPMqWMe3FH2v8A1Aqz8leQOhoUmdMqqoBC4gzl/f8AWH1EVSn69kji/hnh2soocIaHj2/kEQLU9OjdFh1Vp/RMAIaaXZlxvEngygssPUBwvY+MurtXm2rLWWpBIXQoAMJVE/UFXsVAM5RHdsMBWhOExIVbw3vHnyv+eSCsFAQOd8OplE60BDAj75acOa+7izn9qBEhm43ONOO0Vs5QB1Uv9XmfW6151v8AR01+XubIlw3g/FPEmBfXt0gvkfLX2sIW7e3YbmJWgkCEwiWhhAG27Zbi+aCb0+HttGXkj0ZCuznPUFJ617VrsdHqUY/AgVjxoJ47LDsR4nfJLILJmaqkO+j3ECL6iMV4FCAbVcoL8gBo8H34vCwFhUQ3sE1eIGQsKimxicaJZn8RWhD9wZQG8kBVuhL4UndJ9ARAtv5yl2A4g4YKPC+qFb/97Nb6o+gjxz2qePslY3lCADXMAmvGSUsLGAgoEcXv9VKDhoKSDbpfdaxzi8ceKAS4RZkE7NTRO2V6+DleTyF/Vl+TmtdeSC4B9GCCovdmJXnVAa5KM4KgzVDyxIa8Zkt3k+7QXpAgCCTUQoh7chCLWg/zbAjVsoa2igPD5xSiWeUUle/D3VPtjPWzmTbSCNDb08GmORKZQ99RIay04wIoNnB0qDd+8EuAdyay5FR6VN5x1fHk0KzDxOMRous5xB/Ua/fMwzrg5bHjgAUW4k2y+a66a9gg6qOsZN4/fnCKsooE9Hvf3gN4omdQUwWR0y5JcahHX9RaPwF5/m2d4RBxS3iJmniQBUqTB05gSSTMRxVCI66D2vs/V2UQH7bJAvg4itAz1CtDi4ocE0jKu/AebMbpCLy9IDE7GA2YvnR2LtDsAsYBr8E8RU33tmAJg7Y6EDch0cotkIOIXKD4xbR+bdsi/oGdJez+bty8vdp9+WXLi4GwRKMwwIr1VBaqch1lNyHlUUr6ZGxp1Jf+AsSgrUDwqEbCymKeEXsxHK4zR71z+qXu2D4irvXMralCsZeA0QA/dCoN66SJL56kt0kOGvisBzXyrRpo0Rexxj3au9ALcSkC/wCQF8ysC8oPNThCahCAtwZwbrpl+6OitjbCut0GC2maXSq6IKcsXTlhViaVipAMF8QDvdu5uLa+FIuxAdhxjPtC6EspFT5G74c0qUoJFLZWpwQCXLCd7cCDaYfIm4D1/wB2Vs/sQqBgtHzBWzUPxtqKcSPP/Wqlulj0CtOvDBk72zChxpPQ0LjvJyYYLQTpMfrx9GWfxetjO0HPcR03QRpZv1ZQEDc6ePWAEX2GVv8AeD3XxRiATcmXsEj+j6abAdlDXrUWj/FOJBWbh7A7QwjJiJfX7h6OgG7+5pYW28D1oGS0L6rVJMjtvbS8+irnglYMLhChpyk4eQowJIkEMm3AsLqM9hqiKu73RiplDx520wDyjJRs9s/Mfr6QwOTFH7iqCZ57RgG7Ijx3SM3+8EOIKIWLzHC4poflgQ+XvozXKZABOwDAwjBYAYjN6IrFxDrT+BnzYDa11VeivPS54FgRWF3sTYQf+1uWZ3aR1V2/gpQV4kZjbuwn+IozUfcRpZyV9f6t2P0Of+szmrZsW+tJZwEUVEiev7sSid1D6ijcHc018+HYsg+UIjCKiuMsWvcXMbFp27zzp1RooAAk/As/8GVzOoHh6BZFtevZZfwlOKUj03LdlnqcD5cd77b0W5vuJ8Z1Roz7YEB8JMLGjBypYpGj09t8gFPMiumZhAdC41b3karKOvGpeqFzYMKwbJHSyRUFmQAooP1hX5QcJ62rseAQLaUr8buJCr5BnxZhrQ8dNBl8Ucm+JM0Lduj/AIcjn9/mF5baR762o++3hFrCNYhMooFahLAbKJZxpoQaIQJV6FisCyF+gtN9PvqwzKxkAF6EkRH6sDzxS3MYQx0qfJvWSZyRt8DmHrygEy+OVyAvPX9cvp1663jPr4o1BJ/gCKoBS3ut1ukGLYrIaK/r4mIl3SiNmDHDKcx1kxjodYDvM9XTq2xBA2OwexzMvPO6sJBh/B7+AEc33f1wr/QQW9QN18VEKGlSSHrjmoAylpx1rfbOoREajSKmDCvUmRE1qOTYCscrwOhPPID5GCAgP2iiMh2T7/toYEDYXuejLSpbKHrCUmVMikrend4APsdUWZ0wuy39MkkcIRha7OsHzcReHBcjTvsEYCeKZvwEUoqQVB/gWi34Q9rLvi52PNpawhP8I5UNMgFMZTSWCe7ncQp8Myjq2OxyaUtWUeVn6ISW7HzAUx/fuMRlvS/1BTlat3X36guGNIEZN4fM7QPl2+kh/NMkPOMDbDEzvJQrbTG8Pc/ImFkMkkD7OFGPclF/0wLq8cKQOjmO0emp1ZMwI76FSuOb+W8EOFU/UFlTrS2NyIeSEypyf4UrjvRRM7UIuwREJ/UTuSu6TvL8DHJuJW6hCU8ywniEv6sJDFmCIarTl/Bw6uAz6n0d+lbxMDUoleFHzJDNHNz34159JYNGgWNEt5CknH+wkdFilgVVLd8mAmIpMFBfRXA3q7Bf9ZCK0/lbG2N9U6jP8cYyTLP0xQViPo4ut3gsPHfLjBkkWfFNTPFLnPJCpceog007H4kNQLqTA/k10ZbjwdAfqJ2hf/XZq1jduN/jjMuFfUW4qC8oujWvzWzAQvvcvfroXZGkWMTiI+aHuMGSEeKptaE03nEPk1mKrpA5TveJjp7sH0BhtKJKII3e2rduV+mItsDNu/hPNro1nJavG5tJsVeACpvcy/73SoCQIbbq8cbBi0CnJFf6tv6Z89XztxvG7dLCxN2kMrRcALdTFvp/1UEx5JsHNx0I6J94ps3fgxZaeJsk8usQdgTJkyZMmTck60m+BiTevXqSH9N44bJFDVa0KTJpqmTJk0Ucsaox8HWhYgXxwoV//9k=";
+function MapLegendHTML(){
+  const open=state.legendOpen;
+  return `<div class="rounded-xl mt-3" style="${cardStyle()}">
+    <button data-action="toggle-legend" class="w-full flex items-center gap-2 px-3.5 py-2.5 text-left">
+      <i data-lucide="${open?'chevron-down':'chevron-right'}" style="width:14px;height:14px;color:var(--muted);flex-shrink:0"></i>
+      <span class="flex-1 text-sm" style="color:var(--text)">Building legend</span>
+      <span class="text-xs" style="color:var(--muted)">${NL_BUILDINGS.length} buildings</span>
+    </button>
+    ${open?`<div class="px-3.5 pb-3.5 space-y-2">
+      ${NL_BUILDINGS.map(b=>`<div class="flex gap-2.5 items-start">
+        <span class="flex-shrink-0 rounded-md text-xs font-medium flex items-center justify-center" style="width:22px;height:22px;background:var(--accent);color:var(--card)">${b.k}</span>
+        <span class="text-xs leading-relaxed pt-0.5" style="color:var(--muted)">${esc(b.d)}</span>
+      </div>`).join("")}
+      <p class="text-xs pt-1.5 leading-relaxed" style="color:var(--faint);border-top:1px solid var(--border)">Service rooms come from Dallas College's published North Lake campus map. Buildings listed only as classrooms don't have a published name \u2014 edit this list as she learns what's in them.</p>
+    </div>`:""}
+  </div>`;
+}
 function MapTabHTML(){
   return `<div>
     <div class="flex items-center justify-between mb-3">
       <h2 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg">Campus map</h2>
-      <button data-action="toggle-map-add" class="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-xl" style="background:${state.mapAddMode?'#C77D2D':'#3B4B6B'};color:white">
+      <button data-action="toggle-map-add" class="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-xl" style="background:${state.mapAddMode?'var(--warn)':'var(--accent)'};color:white">
         <i data-lucide="plus" style="width:14px;height:14px"></i> ${state.mapAddMode?"Tap the map…":"Pin"}
       </button>
     </div>
-    <svg id="campus-map-svg" viewBox="0 0 100 63.6" class="w-full rounded-xl" style="background:#E3E6DA;cursor:${state.mapAddMode?'crosshair':'default'};border:1px solid #D8DBCF">
-      <rect x="20" y="14" width="60" height="36" fill="#EEF0E6" stroke="#C3C7B8" stroke-width="0.4"/>
-      <line x1="20" y1="32" x2="80" y2="32" stroke="#C3C7B8" stroke-width="0.4"/>
-      <line x1="50" y1="14" x2="50" y2="50" stroke="#C3C7B8" stroke-width="0.4"/>
-      ${state.pins.map(p=>`<g><circle cx="${p.x}" cy="${p.y*0.636}" r="1.6" fill="#3B4B6B" stroke="white" stroke-width="0.4"/><text x="${p.x}" y="${p.y*0.636-2.5}" font-size="3" text-anchor="middle" fill="#1B2430" font-family="Inter, sans-serif">${esc(p.name)}</text></g>`).join("")}
+    <svg id="campus-map-svg" viewBox="0 0 100 63.6" class="w-full rounded-xl" style="background:var(--chip);cursor:${state.mapAddMode?'crosshair':'default'};border:1px solid var(--border)">
+      <image href="${NL_MAP_SRC}" x="18.2" y="0" width="63.6" height="63.6" preserveAspectRatio="xMidYMid meet"/>
+      ${state.pins.map(p=>`<g><circle cx="${p.x}" cy="${p.y*0.636}" r="1.6" fill="var(--accent)" stroke="white" stroke-width="0.4"/><text x="${p.x}" y="${p.y*0.636-2.5}" font-size="3" text-anchor="middle" fill="var(--text)" font-family="Inter, sans-serif">${esc(p.name)}</text></g>`).join("")}
     </svg>
-    <p class="text-xs mt-2" style="color:#5B6470">Tap "Pin" then tap the map to mark a building. Walk-time warnings on your schedule use these pins.</p>
+    ${MapLegendHTML()}
+    <p class="text-xs mt-2" style="color:var(--muted)">Tap "Pin" then tap the map to mark a building. Walk-time warnings on your schedule use these pins.</p>
     <div class="mt-4 space-y-2">
       ${state.pins.map(p=>`<div class="flex items-center justify-between p-2.5 rounded-xl" style="${cardStyle()}">
-        <span class="flex items-center gap-1.5 text-sm"><i data-lucide="map-pin" style="width:13px;height:13px;color:#3B4B6B"></i> ${esc(p.name)}</span>
-        <button data-action="delete-pin" data-id="${p.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:#B0B4A6"></i></button>
+        <span class="flex items-center gap-1.5 text-sm"><i data-lucide="map-pin" style="width:13px;height:13px;color:var(--accent)"></i> ${esc(p.name)}</span>
+        <button data-action="delete-pin" data-id="${p.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:var(--faint2)"></i></button>
       </div>`).join("")}
     </div>
   </div>`;
 }
 
+
+/* ------------------------------- Classes Tab ----------------------------- */
+function datesForClass(name){
+  const short=shortClassName(name).toLowerCase();
+  const code=courseCodeOf(name).toLowerCase();
+  return state.importantDates.filter(d=>{
+    const l=(d.label||"").toLowerCase();
+    return (short && l.indexOf(short)!==-1) || (code && l.indexOf(code)!==-1);
+  }).sort((a,b)=>new Date(a.date)-new Date(b.date));
+}
+function ClassDetailHTML(c, isAsync){
+  const open=state.openClassCard===c.id;
+  const ck=LS.get(classChecklistKey(c.name), []);
+  const assigns=state.assignments.filter(a=>{
+    const k=classOfAssignment(a); return k && k.id===c.id;
+  }).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+  const dates=datesForClass(c.name);
+  const left=assigns.filter(a=>!a.done).length;
+  const meets = isAsync ? "Self-paced \u2014 no set meeting time"
+    : `${(c.days||[]).map(d=>DAY_LABELS[d]).join(", ")} \u00b7 ${fmtTime(c.start)}\u2013${fmtTime(c.end)}`;
+  return `<div class="rounded-xl mb-2.5" style="${cardStyle()}${isAsync?"":`border-left:4px solid ${c.color||"var(--accent)"}`}">
+    <button data-action="toggle-class-card" data-id="${c.id}" class="w-full flex items-start gap-2.5 px-4 py-3.5 text-left">
+      <i data-lucide="${open?'chevron-down':'chevron-right'}" style="width:14px;height:14px;color:var(--muted);flex-shrink:0;margin-top:3px"></i>
+      <div class="flex-1">
+        <p style="font-family:'Fraunces',serif;font-weight:600;color:var(--text)">${esc(shortClassName(c.name))}</p>
+        <p class="text-xs mt-0.5" style="color:var(--muted)">${esc(meets)}</p>
+      </div>
+      <span class="text-xs flex-shrink-0 pt-1" style="color:var(--muted)">${left} left</span>
+    </button>
+    ${open?`<div class="px-4 pb-4 pt-1">
+      ${c.location?`<p class="text-xs mb-2.5 flex items-start gap-1.5" style="color:var(--muted)"><i data-lucide="map-pin" style="width:12px;height:12px;margin-top:2px;flex-shrink:0"></i> ${esc(c.location)}</p>`:""}
+      ${isAsync?`<div class="text-xs space-y-1 mb-2.5" style="color:var(--muted)">
+        ${c.instructor?`<p>${esc(c.instructor)}</p>`:""}
+        ${c.officeHours?`<p>Office hours: ${esc(c.officeHours)}</p>`:""}
+        ${c.textbook?`<p>${esc(c.textbook)}</p>`:""}
+      </div>`:""}
+
+      ${ck.length?`<p class="text-xs uppercase tracking-wide mb-1.5 mt-1" style="color:var(--faint)">Course info</p>
+      <div class="space-y-1 mb-3">
+        ${ck.map(i=>`<p class="text-xs leading-relaxed" style="color:var(--muted)">\u00b7 ${esc(i.text)}</p>`).join("")}
+      </div>`:""}
+
+      ${dates.length?`<p class="text-xs uppercase tracking-wide mb-1.5" style="color:var(--faint)">Semester dates</p>
+      <div class="space-y-1 mb-3">
+        ${dates.map(d=>`<div class="flex items-baseline gap-2 text-xs">
+          <span class="flex-shrink-0" style="color:var(--muted);min-width:52px">${new Date(d.date+"T12:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"})}</span>
+          <span style="color:var(--text)">${esc(d.label.replace(/^.*?\u2014\s*/,""))}</span>
+        </div>`).join("")}
+      </div>`:""}
+
+      ${assigns.length?(()=>{
+        const showAll=!!state.classShowAll[c.id];
+        const shown=showAll?assigns:assigns.slice(0,3);
+        const rest=assigns.length-shown.length;
+        return `<p class="text-xs uppercase tracking-wide mb-1.5" style="color:var(--faint)">Work in this class</p>
+      <div class="space-y-2">
+        ${shown.map(a=>{
+          const away=daysUntil(a.dueDate);
+          return `<div class="flex items-center gap-2 text-xs">
+            <button data-action="toggle-assignment" data-id="${a.id}" class="flex-shrink-0">
+              <div class="rounded-sm flex items-center justify-center" style="width:14px;height:14px;border:1px solid var(--accent);background:${a.done?'var(--accent)':'transparent'}">${a.done?'<i data-lucide="check" style="width:9px;height:9px;color:var(--card)"></i>':''}</div>
+            </button>
+            <span class="flex-shrink-0" style="color:var(--muted);min-width:52px">${new Date(a.dueDate+"T12:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"})}</span>
+            <span class="flex-1 leading-relaxed" style="text-decoration:${a.done?'line-through':'none'};color:${a.done?'var(--faint)':'var(--text)'}">${esc(a.title)}</span>
+            ${!a.done&&away>=0&&away<=2?`<span class="flex-shrink-0" style="color:var(--warn)">${away===0?"today":away===1?"tomorrow":away+" days"}</span>`:""}
+          </div>`;
+        }).join("")}
+      </div>
+      ${rest>0?`<button data-action="class-show-all" data-id="${c.id}" class="text-xs mt-2.5 flex items-center gap-1.5" style="color:var(--accent)"><i data-lucide="plus" style="width:12px;height:12px"></i> Show the other ${rest}</button>`:""}
+      ${showAll&&assigns.length>3?`<button data-action="class-show-less" data-id="${c.id}" class="text-xs mt-2.5 flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="minus" style="width:12px;height:12px"></i> Show only the next 3</button>`:""}`;
+      })():`<p class="text-xs" style="color:var(--muted)">No assignments recorded for this class yet.</p>`}
+    </div>`:""}
+  </div>`;
+}
+function ClassesTabHTML(){
+  const has=state.classes.length+state.asyncCourses.length;
+  return `<div>
+    <h2 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg mb-1">Classes</h2>
+    <p class="text-xs mb-3" style="color:var(--muted)">Everything for the whole semester, one class at a time.</p>
+    ${has===0?`<p class="text-sm" style="color:var(--muted)">No classes yet. Add them from the Schedule tab.</p>`:""}
+    ${state.classes.map(c=>ClassDetailHTML(c,false)).join("")}
+    ${state.asyncCourses.map(c=>ClassDetailHTML(c,true)).join("")}
+  </div>`;
+}
 /* ------------------------------- Events Tab ------------------------------ */
+const DFW_LEGAL_EVENTS=[
+  {id:"dapa-cle-0909", title:"DAPA Litigation CLE \u2014 Noem v. Perdomo", date:"2026-09-09", time:"12:00",
+   location:"Zoom", note:"1.0 hr general CLE through DAPA. Free-standing lunch hour, no travel. Contact pd@dallasparalegals.org.",
+   why:"Easiest first CLE \u2014 online, one hour, no cost of travel."},
+  {id:"horizons-0908", title:"Horizons Legal Solutions Happy Hour", date:"2026-09-08", time:"17:30",
+   location:"Barcelona Wine Bar, 5016 Miller Ave, Dallas",
+   note:"Shared by DAPA but not a DAPA event. Informal networking.",
+   why:"Low-pressure way to meet working paralegals before committing to a full CLE."},
+  {id:"taps-0930", title:"TAPS \u2014 Texas Advanced Paralegal Seminar", date:"2026-09-30", time:"09:00",
+   location:"San Antonio, TX",
+   note:"Sept 30 \u2013 Oct 2. Up to 13 hrs CLE, exhibit hall, three socials. Run by the State Bar of Texas Paralegal Division. Registration at txpd.org.",
+   why:"The big one. Overlaps her semester \u2014 check against LGLA attendance before booking."},
+  {id:"paralegal-day-1021", title:"Texas Paralegal Day Luncheon", date:"2026-10-21", time:"12:00",
+   location:"Arts District Mansion, 2101 Ross Ave, Dallas",
+   note:"DAPA event, one hour.",
+   why:"Short, local, and squarely aimed at the profession she's entering."},
+  {id:"dapa-gala-1212", title:"DAPA 50th Anniversary Gala", date:"2026-12-12", time:"17:30",
+   location:"The Highland Dallas, 5300 E Mockingbird Ln",
+   note:"DAPA's 50th. Ticketed. Falls just after her Dec 10 course end date.",
+   why:"After finals \u2014 the one to go to for fun rather than credit."},
+  {id:"dba-ip-monthly", title:"DBA IP Section \u2014 monthly noon CLE", date:"2026-09-24", time:"12:00",
+   location:"Arts District Mansion, 2101 Ross Ave, Dallas",
+   note:"Generally the 4th Thursday each month. Confirm each month at dbaip.com \u2014 dates shift.",
+   why:"Closest recurring thing to tech/IP contract work. DBA law-student membership is $20/yr."},
+];
+function DfwEventsHTML(){
+  const open=state.dfwOpen;
+  const have=new Set(state.events.map(e=>e.sourceId).filter(Boolean));
+  return `<div class="rounded-xl mb-4" style="${cardStyle()}">
+    <button data-action="toggle-dfw" class="w-full flex items-center gap-2 px-3.5 py-2.5 text-left">
+      <i data-lucide="${open?'chevron-down':'chevron-right'}" style="width:14px;height:14px;color:var(--muted);flex-shrink:0"></i>
+      <span class="flex-1 text-sm" style="color:var(--text)">DFW legal and paralegal events</span>
+      <span class="text-xs" style="color:var(--muted)">${DFW_LEGAL_EVENTS.length}</span>
+    </button>
+    ${open?`<div class="px-3.5 pb-3.5 space-y-2.5">
+      ${DFW_LEGAL_EVENTS.map(e=>{
+        const added=have.has(e.id);
+        return `<div class="rounded-xl p-3" style="background:var(--surface)">
+          <p class="text-sm" style="color:var(--text)">${esc(e.title)}</p>
+          <p class="text-xs mt-0.5" style="color:var(--muted)">${new Date(e.date+"T12:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})} \u00b7 ${fmtTime(e.time)} \u00b7 ${esc(e.location)}</p>
+          <p class="text-xs mt-1.5 leading-relaxed" style="color:var(--muted)">${esc(e.why)}</p>
+          <button data-action="add-dfw-event" data-id="${e.id}" ${added?"disabled":""} class="text-xs mt-2 px-2.5 py-1 rounded-xl flex items-center gap-1" style="${added?'color:var(--ok);border:1px solid var(--border)':'color:var(--accent);border:1px solid var(--accent)'}">
+            <i data-lucide="${added?'check':'plus'}" style="width:11px;height:11px"></i> ${added?"On your list":"Add to my events"}
+          </button>
+        </div>`;
+      }).join("")}
+      <p class="text-xs pt-1 leading-relaxed" style="color:var(--faint)">Dates from DAPA's calendar and the Dallas Bar IP Section. Confirm before travelling \u2014 these move.</p>
+    </div>`:""}
+  </div>`;
+}
+
 function EventsTabHTML(){
   const upcoming=[...state.events].sort((a,b)=>new Date(a.date)-new Date(b.date));
   return `<div>
@@ -1296,15 +1740,16 @@ function EventsTabHTML(){
       <h2 style="font-family:'Fraunces',serif;font-weight:600" class="text-lg">Events</h2>
       <button data-action="open-modal" data-modal="add-event" class="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-xl" style="${primaryBtn()}"><i data-lucide="plus" style="width:14px;height:14px"></i> Event</button>
     </div>
-    ${upcoming.length===0?`<p class="text-sm" style="color:#5B6470">No events yet.</p>`:""}
+    ${DfwEventsHTML()}
+    ${upcoming.length===0?`<p class="text-sm" style="color:var(--muted)">No events yet.</p>`:""}
     <div class="space-y-2">
       ${upcoming.map(e=>`<div class="rounded-xl p-3.5 flex items-start justify-between" style="${cardStyle()}">
         <div>
           <p style="font-family:'Fraunces',serif;font-weight:600">${esc(e.title)}</p>
-          <p class="text-sm" style="color:#5B6470">${new Date(e.date).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}${e.time?` · ${fmtTime(e.time)}`:""}${e.location?` · ${esc(e.location)}`:""}</p>
-          ${e.note?`<p class="text-xs mt-1" style="color:#5B6470">${esc(e.note)}</p>`:""}
+          <p class="text-sm" style="color:var(--muted)">${new Date(e.date).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}${e.time?` · ${fmtTime(e.time)}`:""}${e.location?` · ${esc(e.location)}`:""}</p>
+          ${e.note?`<p class="text-xs mt-1" style="color:var(--muted)">${esc(e.note)}</p>`:""}
         </div>
-        <button data-action="delete-event" data-id="${e.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:#B0B4A6"></i></button>
+        <button data-action="delete-event" data-id="${e.id}"><i data-lucide="trash-2" style="width:14px;height:14px;color:var(--faint2)"></i></button>
       </div>`).join("")}
     </div>
   </div>`;
@@ -1358,8 +1803,8 @@ function ModalsHTML(){
     ${fieldHtml("Their share", `<input id="msp-amount" type="number" placeholder="0.00" class="px-3 py-2 rounded-xl" style="${inputStyle};font-family:'IBM Plex Mono',monospace"/>`)}
     ${fieldHtml("Roommate's name", `<input id="msp-person" placeholder="e.g. Jordan" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
     <div class="flex gap-2 mb-4">
-      <button data-action="set-split-direction" data-owe="false" class="flex-1 py-2 rounded-xl text-sm" id="msp-btn-they" style="background:#3B4B6B;color:white;border:1px solid #D8DBCF">They owe me</button>
-      <button data-action="set-split-direction" data-owe="true" class="flex-1 py-2 rounded-xl text-sm" id="msp-btn-i" style="background:white;color:#1B2430;border:1px solid #D8DBCF">I owe them</button>
+      <button data-action="set-split-direction" data-owe="false" class="flex-1 py-2 rounded-xl text-sm" id="msp-btn-they" style="background:var(--accent);color:white;border:1px solid var(--border)">They owe me</button>
+      <button data-action="set-split-direction" data-owe="true" class="flex-1 py-2 rounded-xl text-sm" id="msp-btn-i" style="background:white;color:var(--text);border:1px solid var(--border)">I owe them</button>
     </div>
     <button data-action="submit-add-split" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Save</button>
   `);
@@ -1381,11 +1826,11 @@ function ModalsHTML(){
 }
 function FeedModalHTML(){
   return ModalWrap("Notifications", `
-    ${state.alerts.length===0?`<p class="text-sm" style="color:#5B6470">No alerts yet. You'll see class reminders, tight-transition warnings, event reminders, and budget alerts here.</p>`:""}
+    ${state.alerts.length===0?`<p class="text-sm" style="color:var(--muted)">No alerts yet. You'll see class reminders, tight-transition warnings, event reminders, and budget alerts here.</p>`:""}
     <div class="space-y-2">
-      ${state.alerts.map(a=>`<div class="flex items-start gap-2 p-2.5 rounded-xl" style="background:#F2F3EB">
+      ${state.alerts.map(a=>`<div class="flex items-start gap-2 p-2.5 rounded-xl" style="background:var(--surface)">
         <i data-lucide="${LEVEL_ICON[a.level]||'bell'}" style="width:14px;height:14px;color:${LEVEL_COLOR[a.level]};margin-top:2px;flex-shrink:0"></i>
-        <div class="flex-1"><p class="text-sm">${esc(a.message)}</p><p class="text-xs" style="color:#5B6470">${new Date(a.timestamp).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</p></div>
+        <div class="flex-1"><p class="text-sm">${esc(a.message)}</p><p class="text-xs" style="color:var(--muted)">${new Date(a.timestamp).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</p></div>
       </div>`).join("")}
     </div>
   `);
@@ -1394,7 +1839,7 @@ function IdModalHTML(){
   const p=state.draftProfile || {...state.profile};
   const todays=state.classes.filter(c=>c.days.includes(new Date().getDay())).sort((a,b)=>parseTime(a.start)-parseTime(b.start));
   return ModalWrap("Student ID", `
-    <div class="rounded-xl p-4 mb-4" style="background:linear-gradient(135deg,#3B4B6B,#2E3C57);color:white;box-shadow:0 8px 24px -8px rgba(59,75,107,.5)">
+    <div class="rounded-xl p-4 mb-4" style="background:linear-gradient(135deg,var(--accent),var(--accent-dk));color:white;box-shadow:0 8px 24px -8px rgba(59,75,107,.5)">
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-1.5">${BrandMarkSVG(22)}<span class="text-xs font-medium tracking-wide uppercase" style="opacity:.85">Campus</span></div>
         ${isVerified()?`<span class="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,.15)"><i data-lucide="shield-check" style="width:11px;height:11px"></i> Student email verified</span>`
@@ -1420,21 +1865,21 @@ function IdModalHTML(){
     ${fieldHtml("Student ID number", `<input id="id-studentid" value="${esc(p.studentId)}" placeholder="e.g. 20260145" class="px-3 py-2 rounded-xl" style="${inputStyle};font-family:'IBM Plex Mono',monospace" oninput="window.__idFieldChanged()"/>`)}
     ${fieldHtml("Photo", `
       <input id="id-photo-file" type="file" accept="image/*" class="hidden" onchange="window.__handleIdPhoto(event)"/>
-      <button data-action="trigger-photo" class="w-full py-2 rounded-xl text-sm flex items-center justify-center gap-1.5" style="border:1px solid #D8DBCF;color:#3B4B6B"><i data-lucide="camera" style="width:14px;height:14px"></i> ${p.photo?"Replace photo":"Upload a photo"}</button>
-      <div id="id-photo-error" class="text-xs mt-1" style="color:#B4432F"></div>
+      <button data-action="trigger-photo" class="w-full py-2 rounded-xl text-sm flex items-center justify-center gap-1.5" style="border:1px solid var(--border);color:var(--accent)"><i data-lucide="camera" style="width:14px;height:14px"></i> ${p.photo?"Replace photo":"Upload a photo"}</button>
+      <div id="id-photo-error" class="text-xs mt-1" style="color:var(--over)"></div>
     `)}
-    <div class="mb-4 p-3 rounded-xl text-sm" style="background:#F2F3EB">
+    <div class="mb-4 p-3 rounded-xl text-sm" style="background:var(--surface)">
       ${isVerified()?`
-        <p class="flex items-center gap-1.5" style="color:#1F7A5C"><i data-lucide="shield-check" style="width:14px;height:14px"></i> Signed in with ${esc(state.enrollment.email)}</p>
-        <p class="text-xs mt-1" style="color:#5B6470">Verified badge is based on a student-email domain match, not your school's registrar.</p>
+        <p class="flex items-center gap-1.5" style="color:var(--ok)"><i data-lucide="shield-check" style="width:14px;height:14px"></i> Signed in with ${esc(state.enrollment.email)}</p>
+        <p class="text-xs mt-1" style="color:var(--muted)">Verified badge is based on a student-email domain match, not your school's registrar.</p>
       `:`
-        <p class="flex items-center gap-1.5" style="color:#C77D2D"><i data-lucide="clock" style="width:14px;height:14px"></i> Pending — not enrolled yet</p>
-        <p class="text-xs mt-1" style="color:#5B6470">You're using Campus without a verified student email. Sign in with your student email once you're registered to switch to Verified.</p>
+        <p class="flex items-center gap-1.5" style="color:var(--warn)"><i data-lucide="clock" style="width:14px;height:14px"></i> Pending — not enrolled yet</p>
+        <p class="text-xs mt-1" style="color:var(--muted)">You're using Campus without a verified student email. Sign in with your student email once you're registered to switch to Verified.</p>
       `}
     </div>
     <button data-action="save-id" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Save ID</button>
-    <p class="text-xs mt-3 text-center" style="color:#5B6470">Your photo is stored only in this browser's local storage on this device.</p>
-    <button data-action="sign-out" class="w-full text-xs mt-3 text-center" style="color:#B4432F">Sign out</button>
+    <p class="text-xs mt-3 text-center" style="color:var(--muted)">Your photo is stored only in this browser's local storage on this device.</p>
+    <button data-action="sign-out" class="w-full text-xs mt-3 text-center" style="color:var(--over)">Sign out</button>
   `);
 }
 function SemesterSetupModalHTML(){
@@ -1446,34 +1891,34 @@ function SemesterSetupModalHTML(){
       ${fieldHtml("End date", `<input id="ss-end" type="date" value="${s?s.endDate:""}" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
     </div>
     <button data-action="submit-semester" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5 mb-2" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Save</button>
-    ${s?`<button data-action="clear-semester" class="w-full py-2 rounded-xl text-sm" style="color:#B4432F">Remove semester tracking</button>`:""}
+    ${s?`<button data-action="clear-semester" class="w-full py-2 rounded-xl text-sm" style="color:var(--over)">Remove semester tracking</button>`:""}
   `);
 }
 function AddClassModalHTML(){
   const draft=state.draftClass || {days:[], color:CLASS_COLORS[0]};
   return ModalWrap("Add class", `
     ${fieldHtml("Name", `<input id="cl-name" placeholder="e.g. Chem 101" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
-    ${fieldHtml("Days", `<div class="flex gap-1.5 flex-wrap">${[1,2,3,4,5,6,0].map(d=>`<button data-action="toggle-class-day" data-day="${d}" class="px-2.5 py-1 rounded-full text-xs" style="background:${draft.days.includes(d)?'#3B4B6B':'white'};color:${draft.days.includes(d)?'white':'#1B2430'};border:1px solid #D8DBCF">${DAY_LABELS[d]}</button>`).join("")}</div>`)}
+    ${fieldHtml("Days", `<div class="flex gap-1.5 flex-wrap">${[1,2,3,4,5,6,0].map(d=>`<button data-action="toggle-class-day" data-day="${d}" class="px-2.5 py-1 rounded-full text-xs" style="background:${draft.days.includes(d)?'var(--accent)':'white'};color:${draft.days.includes(d)?'white':'var(--text)'};border:1px solid var(--border)">${DAY_LABELS[d]}</button>`).join("")}</div>`)}
     <div class="flex gap-3">
       ${fieldHtml("Start", `<input id="cl-start" type="time" value="09:00" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
       ${fieldHtml("End", `<input id="cl-end" type="time" value="10:00" class="px-3 py-2 rounded-xl" style="${inputStyle}"/>`)}
     </div>
-    ${fieldHtml("Building (optional)", `<select id="cl-pin" class="px-3 py-2 rounded-xl" style="${inputStyle}"><option value="">No location set</option>${state.pins.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>${state.pins.length===0?`<p class="text-xs mt-1" style="color:#5B6470">Add pins on the Map tab to enable walk-time warnings.</p>`:""}`)}
-    ${fieldHtml("Color", `<div class="flex gap-2">${CLASS_COLORS.map(c=>`<button data-action="set-class-color" data-color="${c}" class="w-6 h-6 rounded-full" style="background:${c};outline:${draft.color===c?'2px solid #1B2430':'none'};outline-offset:2px"></button>`).join("")}</div>`)}
+    ${fieldHtml("Building (optional)", `<select id="cl-pin" class="px-3 py-2 rounded-xl" style="${inputStyle}"><option value="">No location set</option>${state.pins.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>${state.pins.length===0?`<p class="text-xs mt-1" style="color:var(--muted)">Add pins on the Map tab to enable walk-time warnings.</p>`:""}`)}
+    ${fieldHtml("Color", `<div class="flex gap-2">${CLASS_COLORS.map(c=>`<button data-action="set-class-color" data-color="${c}" class="w-6 h-6 rounded-full" style="background:${c};outline:${draft.color===c?'2px solid var(--text)':'none'};outline-offset:2px"></button>`).join("")}</div>`)}
     <button data-action="submit-add-class" class="w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5" style="${primaryBtn()}"><i data-lucide="check" style="width:15px;height:15px"></i> Add class</button>
   `);
 }
 
 /* ------------------------------ Blue Bonnet ------------------------------- */
 function BlueBonnetFabHTML(){
-  return `<button data-action="open-bluebonnet" class="fixed z-40 rounded-full flex items-center justify-center" style="bottom:88px;right:20px;width:52px;height:52px;background:linear-gradient(135deg,#3B4B6B,#2E3C57);box-shadow:0 8px 20px -4px rgba(59,75,107,.5)">
+  return `<button data-action="open-bluebonnet" class="fixed z-40 rounded-full flex items-center justify-center" style="bottom:88px;right:20px;width:52px;height:52px;background:linear-gradient(135deg,var(--accent),var(--accent-dk));box-shadow:0 8px 20px -4px rgba(59,75,107,.5)">
     <i data-lucide="sparkles" style="width:22px;height:22px;color:white"></i>
   </button>`;
 }
 function PendingClassesCardHTML(){
   if(!state.bbPendingClasses) return "";
-  return `<div class="rounded-xl p-3" style="background:#F2F3EB;border:1px solid #D8DBCF">
-    <p class="text-xs font-medium mb-2" style="color:#1B2430">Detected classes — uncheck any that aren't right</p>
+  return `<div class="rounded-xl p-3" style="background:var(--surface);border:1px solid var(--border)">
+    <p class="text-xs font-medium mb-2" style="color:var(--text)">Detected classes — uncheck any that aren't right</p>
     <div class="space-y-2 mb-3">
       ${state.bbPendingClasses.map((c,i)=>`<label class="flex items-start gap-2 text-xs">
         <input type="checkbox" data-action="toggle-pending-class" data-idx="${i}" ${c.include?"checked":""} class="mt-0.5"/>
@@ -1487,29 +1932,29 @@ function PendingClassesCardHTML(){
     </div>
     <div class="flex gap-2">
       <button data-action="confirm-pending-classes" class="flex-1 py-2 rounded-xl text-xs flex items-center justify-center gap-1" style="${primaryBtn()}"><i data-lucide="check" style="width:12px;height:12px"></i> Add to schedule</button>
-      <button data-action="cancel-pending-classes" class="px-3 py-2 rounded-xl text-xs" style="border:1px solid #D8DBCF;color:#5B6470">Discard</button>
+      <button data-action="cancel-pending-classes" class="px-3 py-2 rounded-xl text-xs" style="border:1px solid var(--border);color:var(--muted)">Discard</button>
     </div>
   </div>`;
 }
 function BlueBonnetModalHTML(){
   return `<div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style="background:rgba(27,36,48,.5);backdrop-filter:blur(2px)" data-action="close-bluebonnet">
-    <div id="bb-panel" class="modal-up w-full sm:max-w-sm flex flex-col rounded-t-xl sm:rounded-xl overflow-hidden relative" style="height:80vh;max-height:600px;background:#FBFBF6;box-shadow:0 -8px 30px rgba(27,36,48,.15),0 20px 40px -12px rgba(27,36,48,.25)" data-stop="1">
-      <div class="flex items-center justify-between p-4" style="border-bottom:1px solid #D8DBCF">
+    <div id="bb-panel" class="modal-up w-full sm:max-w-sm flex flex-col rounded-t-xl sm:rounded-xl overflow-hidden relative" style="height:80vh;max-height:600px;background:var(--card);box-shadow:0 -8px 30px rgba(27,36,48,.15),0 20px 40px -12px rgba(27,36,48,.25)" data-stop="1">
+      <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--border)">
         <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:#3B4B6B"><i data-lucide="sparkles" style="width:15px;height:15px;color:white"></i></div>
-          <div><p style="font-family:'Fraunces',serif;font-weight:600" class="text-sm leading-none">Blue Bonnet</p><p class="text-[10px]" style="color:#5B6470">Your campus assistant</p></div>
+          <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:var(--accent)"><i data-lucide="sparkles" style="width:15px;height:15px;color:white"></i></div>
+          <div><p style="font-family:'Fraunces',serif;font-weight:600" class="text-sm leading-none">Blue Bonnet</p><p class="text-[10px]" style="color:var(--muted)">Your campus assistant</p></div>
         </div>
-        <button data-action="close-bluebonnet"><i data-lucide="x" style="width:18px;height:18px;color:#5B6470"></i></button>
+        <button data-action="close-bluebonnet"><i data-lucide="x" style="width:18px;height:18px;color:var(--muted)"></i></button>
       </div>
       <div id="bb-scroll" class="flex-1 overflow-y-auto p-4 space-y-3">
         ${state.bbMessages.map(m=>`<div class="flex" style="justify-content:${m.role==='user'?'flex-end':'flex-start'}">
-          <div class="rounded-xl px-3 py-2 text-sm" style="max-width:80%;background:${m.role==='user'?'#3B4B6B':'#F2F3EB'};color:${m.role==='user'?'white':'#1B2430'};white-space:pre-wrap">${esc(m.content)}</div>
+          <div class="rounded-xl px-3 py-2 text-sm" style="max-width:80%;background:${m.role==='user'?'var(--accent)':'var(--surface)'};color:${m.role==='user'?'white':'var(--text)'};white-space:pre-wrap">${esc(m.content)}</div>
         </div>`).join("")}
-        ${state.bbLoading?`<div class="flex justify-start"><div class="rounded-xl px-3 py-2 text-sm" style="background:#F2F3EB;color:#5B6470">Thinking…</div></div>`:""}
-        ${state.bbFileProcessing?`<div class="flex justify-start"><div class="rounded-xl px-3 py-2 text-sm flex items-center gap-1.5" style="background:#F2F3EB;color:#5B6470"><i data-lucide="loader" style="width:13px;height:13px"></i> Reading file…</div></div>`:""}
+        ${state.bbLoading?`<div class="flex justify-start"><div class="rounded-xl px-3 py-2 text-sm" style="background:var(--surface);color:var(--muted)">Thinking…</div></div>`:""}
+        ${state.bbFileProcessing?`<div class="flex justify-start"><div class="rounded-xl px-3 py-2 text-sm flex items-center gap-1.5" style="background:var(--surface);color:var(--muted)"><i data-lucide="loader" style="width:13px;height:13px"></i> Reading file…</div></div>`:""}
         ${state.bbPendingClasses?PendingClassesCardHTML():""}
-        ${state.bbError?`<p class="text-xs" style="color:#B4432F">${esc(state.bbError)}</p>`:""}
-        ${state.bbFileError?`<p class="text-xs" style="color:#B4432F">${esc(state.bbFileError)}</p>`:""}
+        ${state.bbError?`<p class="text-xs" style="color:var(--over)">${esc(state.bbError)}</p>`:""}
+        ${state.bbFileError?`<p class="text-xs" style="color:var(--over)">${esc(state.bbFileError)}</p>`:""}
       </div>
       ${state.bbDragOver?`<div class="absolute inset-0 flex items-center justify-center" style="background:rgba(59,75,107,0.9);z-index:10">
         <div class="text-center text-white">
@@ -1518,11 +1963,11 @@ function BlueBonnetModalHTML(){
           <p class="text-xs mt-1" style="opacity:.8">PDF, Word doc, image, or text file</p>
         </div>
       </div>`:""}
-      <div class="p-3 flex gap-2 items-center" style="border-top:1px solid #D8DBCF">
+      <div class="p-3 flex gap-2 items-center" style="border-top:1px solid var(--border)">
         <input id="bb-file-input" type="file" accept=".pdf,.docx,.txt,image/*" class="hidden" onchange="window.__bbFileSelected(event)"/>
-        <button data-action="trigger-bb-file" class="p-2 rounded-xl flex-shrink-0" style="border:1px solid #D8DBCF;color:#3B4B6B" title="Attach a syllabus"><i data-lucide="paperclip" style="width:16px;height:16px"></i></button>
+        <button data-action="trigger-bb-file" class="p-2 rounded-xl flex-shrink-0" style="border:1px solid var(--border);color:var(--accent)" title="Attach a syllabus"><i data-lucide="paperclip" style="width:16px;height:16px"></i></button>
         <input id="bb-input" placeholder="Ask, or drop a syllabus…" class="flex-1 px-3 py-2 rounded-xl text-sm" style="${inputStyle}" onkeydown="if(event.key==='Enter') window.__sendBB()"/>
-        <button data-action="send-bluebonnet" ${state.bbLoading?"disabled":""} class="px-3 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#3B4B6B;color:white"><i data-lucide="send" style="width:16px;height:16px"></i></button>
+        <button data-action="send-bluebonnet" ${state.bbLoading?"disabled":""} class="px-3 rounded-xl flex items-center justify-center flex-shrink-0" style="background:var(--accent);color:white"><i data-lucide="send" style="width:16px;height:16px"></i></button>
       </div>
     </div>
   </div>`;
@@ -1533,6 +1978,7 @@ function AppHTML(){
   if(!state.enrollment) return EnrollmentGateHTML();
   let tabHtml="";
   if(state.tab==="today") tabHtml=TodayTabHTML();
+  else if(state.tab==="classes") tabHtml=ClassesTabHTML();
   else if(state.tab==="schedule") tabHtml=ScheduleTabHTML();
   else if(state.tab==="budget") tabHtml=BudgetTabHTML();
   else if(state.tab==="map") tabHtml = isVerified()?MapTabHTML():LockedFeatureHTML("the campus map");
@@ -1548,8 +1994,13 @@ function AppHTML(){
     ${ModalsHTML()}
   </div>`;
 }
+let __lastHTML=null;
 function render(){
-  document.getElementById("app").innerHTML = AppHTML();
+  document.documentElement.setAttribute("data-theme", state.theme||"warm");
+  const html=AppHTML();
+  if(html===__lastHTML) return;   // nothing visible changed — don't touch the DOM
+  __lastHTML=html;
+  document.getElementById("app").innerHTML = html;
   if(window.lucide) lucide.createIcons();
   const bbScroll=document.getElementById("bb-scroll");
   if(bbScroll) bbScroll.scrollTop=bbScroll.scrollHeight;
@@ -1699,6 +2150,27 @@ document.addEventListener("click", function(e){
       state.assignments=state.assignments.map(a=>a.id===id?{...a,done:!a.done}:a);
       persist("campus-assignments", state.assignments); render(); break;
     }
+    case "push-calendar": pushToGoogleCalendar(); break;
+    case "class-show-all": state.classShowAll={...state.classShowAll,[t.dataset.id]:true}; render(); break;
+    case "class-show-less": state.classShowAll={...state.classShowAll,[t.dataset.id]:false}; render(); break;
+    case "toggle-class-card": { const k=t.dataset.id; state.openClassCard = state.openClassCard===k?null:k; render(); break; }
+    case "toggle-dfw": state.dfwOpen=!state.dfwOpen; render(); break;
+    case "add-dfw-event": {
+      const src=DFW_LEGAL_EVENTS.find(x=>x.id===t.dataset.id);
+      if(src && !state.events.some(e=>e.sourceId===src.id)){
+        state.events=[...state.events,{id:uid(), sourceId:src.id, title:src.title, date:src.date, time:src.time, location:src.location, note:src.note}];
+        persist("campus-events", state.events);
+      }
+      render(); break;
+    }
+    case "toggle-legend": state.legendOpen=!state.legendOpen; render(); break;
+    case "toggle-assign-group": {
+      const k=t.dataset.key;
+      state.openAssignGroup = state.openAssignGroup===k ? null : k;
+      render(); break;
+    }
+    case "expand-assign-group": state.expandedGroups={...state.expandedGroups,[t.dataset.key]:true}; render(); break;
+    case "collapse-assign-group": state.expandedGroups={...state.expandedGroups,[t.dataset.key]:false}; render(); break;
     case "delete-assignment": state.assignments=state.assignments.filter(a=>a.id!==t.dataset.id); persist("campus-assignments", state.assignments); render(); break;
 
     case "toggle-checklist-item": {
@@ -1819,8 +2291,8 @@ document.addEventListener("click", function(e){
       state.draftSplitOwe = t.dataset.owe==="true";
       const theyBtn=document.getElementById("msp-btn-they"), iBtn=document.getElementById("msp-btn-i");
       if(theyBtn && iBtn){
-        theyBtn.style.background = state.draftSplitOwe? "white":"#3B4B6B"; theyBtn.style.color = state.draftSplitOwe? "#1B2430":"white";
-        iBtn.style.background = state.draftSplitOwe? "#3B4B6B":"white"; iBtn.style.color = state.draftSplitOwe? "white":"#1B2430";
+        theyBtn.style.background = state.draftSplitOwe? "white":"var(--accent)"; theyBtn.style.color = state.draftSplitOwe? "var(--text)":"white";
+        iBtn.style.background = state.draftSplitOwe? "var(--accent)":"white"; iBtn.style.color = state.draftSplitOwe? "white":"var(--text)";
       }
       break;
     }
@@ -1868,6 +2340,7 @@ document.addEventListener("click", function(e){
 
     case "send-bluebonnet": sendBlueBonnet(); break;
     case "connect-drive": connectDrive(); break;
+    case "set-theme": state.theme=t.dataset.theme; persist("campus-theme", state.theme); render(); break;
     case "sync-now": saveToDrive(); break;
     case "run-syllabus-import": runSyllabusImport(); break;
     case "trigger-bb-file": document.getElementById("bb-file-input").click(); break;
@@ -1895,6 +2368,19 @@ document.addEventListener("click", function(e){
   render();
 });
 
+// Migrate older assignments: strip the course code and attach a classId.
+(function migrateAssignments(){
+  let touched=false;
+  state.assignments = state.assignments.map(a=>{
+    const cleaned = cleanAssignmentTitle(a.title);
+    let classId = a.classId;
+    if(!classId){ const c = classOfAssignment(a); if(c) classId = c.id; }
+    if(cleaned!==a.title || classId!==a.classId){ touched=true; return {...a, title:cleaned, classId}; }
+    return a;
+  });
+  if(touched) persist("campus-assignments", state.assignments);
+})();
+
 /* --------------------------------- boot ----------------------------------- */
 // Fall 2026 syllabi ship with the app: load them automatically on first open,
 // on every device, with no tap required.
@@ -1902,6 +2388,7 @@ if(!LS.get("campus-syllabus-import-done", false)){
   try{ runSyllabusImport(); }catch(e){}
 }
 render();
+alertsChanged=false;
 runChecks();
 setInterval(runChecks, 30000);
 initGoogleClient();
