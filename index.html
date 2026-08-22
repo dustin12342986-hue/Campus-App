@@ -87,7 +87,374 @@ const SCHOOL_PRESETS = [
   { name: "Lone Star Test University (fake — for testing)", domains: ["student.lonestartest.edu"] },
 ];
 // Set this to your real Blue Bonnet API endpoint. Left empty, the chat explains it isn't wired up yet.
-const BLUE_BONNET_ENDPOINT = "";
+/* ===================== BB GATEWAY CLIENT (inlined) ======================= */
+/**
+ * BB GATEWAY CLIENT — drop-in gateway support for any Blue Bonnet app.
+ * ====================================================================
+ *
+ * One file, no dependencies, no build step. Include it before your app code:
+ *
+ *     <script src="bb-gateway-client.js"><\/script>
+ *
+ * Then talk to it:
+ *
+ *     BBGateway.configure({
+ *       url: "https://blue-bonnet-gateway.dustin12342986.workers.dev",
+ *       key: "your-gateway-key",
+ *       app: "whatever-this-app-is-called",   // shows up in gateway logs
+ *     });
+ *
+ *     const reply = await BBGateway.chat({
+ *       system: "You are ...",
+ *       messages: [{ role: "user", content: "hello" }],
+ *       onDelta: (soFar) => { bubble.textContent = soFar; },
+ *     });
+ *
+ * That's the whole API. Everything below is the hard-won part — the four
+ * things that took a full day to find, each of which silently breaks a
+ * gateway app in a way that looks like something else.
+ *
+ *
+ * 1. SIZE ROUTING.  The gateway tries providers in a per-tier order. On
+ *    "balanced" Groq is first, which is right for short requests — fast and
+ *    free. But Groq's ceiling is 8,000 tokens PER MINUTE INCLUDING the reply.
+ *    A real prompt with identity and memory passes that routinely. The chain
+ *    does fall through to Gemini, so it recovers — but it burns a whole
+ *    rejected round trip first, on every message. So: estimate size, and send
+ *    anything over ~4,000 tokens to "quality", where Gemini is tried first.
+ *    Same providers, same chain, no wasted rejection.
+ *
+ * 2. SHRINK AND RETRY.  A fixed character budget CANNOT guarantee a fit.
+ *    Providers count tokens not characters, the ratio varies with the text,
+ *    images cost far more than they measure, and a provider can change its
+ *    ceiling without warning. Guessing once and hoping is what produces
+ *    "Request too large" over and over. So: send, and if the provider says it
+ *    was too big, halve the history and send again. The provider is the only
+ *    authority on what fits — let it be the one that decides. The system
+ *    prompt is NEVER cut; older conversation is what goes.
+ *
+ * 3. IMAGES.  The gateway speaks OpenAI format, which carries images as
+ *    { type: "image_url", image_url: { url: "data:..." } } — NOT Anthropic's
+ *    { type: "image", source: {...} }. Send the wrong shape and the image is
+ *    silently dropped: no error, the model just answers as though you sent
+ *    nothing. Worse, if you then let it talk about the image, it invents a
+ *    description of a file it never received.
+ *
+ * 4. NON-STREAMING WORKERS.  A browser hands you res.body whether or not the
+ *    response is an event stream, so checking for res.body is not enough. If
+ *    the Worker isn't the streaming one, the SSE parser finds no "data:"
+ *    lines, throws "empty stream", and a perfectly good answer gets thrown
+ *    away. Check the content-type.
+ */
+
+(function (global) {
+  "use strict";
+
+  var cfg = {
+    url: "",
+    key: "",
+    app: "blue-bonnet",
+    maxTokens: 1000,
+    temperature: 0.7,
+    // Conversation kept, in characters, before the first send. Retries halve
+    // this. Not a guarantee of anything — see note 2 above.
+    turnBudget: 24000,
+    // Above this estimate, route to "quality" so Gemini is tried first.
+    qualityAbove: 4000,
+    shrinks: 4,
+  };
+
+  function configure(opts) {
+    for (var k in opts) { if (opts.hasOwnProperty(k)) cfg[k] = opts[k]; }
+    return ready();
+  }
+
+  function ready() {
+    return !!(cfg.url && cfg.key && cfg.key !== "PUT_YOUR_GATEWAY_KEY_HERE");
+  }
+
+  // ---- size ---------------------------------------------------------------
+  // An image costs far more than its text length suggests. Charging it at a
+  // flat 4,000 keeps it from riding free in the budget and blowing the
+  // ceiling in a way that looks like a mystery 413.
+  function turnLength(turn) {
+    var c = turn && turn.content;
+    if (typeof c === "string") return c.length;
+    if (!Array.isArray(c)) return 0;
+    var n = 0;
+    for (var i = 0; i < c.length; i++) {
+      var p = c[i];
+      if (p.type === "text") n += (p.text || "").length;
+      else if (p.type === "image_url" || p.type === "image") n += 4000;
+    }
+    return n;
+  }
+
+  // Keep the most recent turns that fit. Always keep at least the current
+  // message — budget 0 means exactly that, and must not be confused with
+  // "no budget set", which is why it's checked explicitly.
+  function trimTurns(turns, budget) {
+    if (budget === 0) return turns.slice(-1);
+    var kept = [], used = 0;
+    for (var i = turns.length - 1; i >= 0; i--) {
+      var len = turnLength(turns[i]);
+      if (kept.length >= 1 && used + len > budget) break;
+      kept.unshift(turns[i]);
+      used += len;
+    }
+    return kept;
+  }
+
+  // ---- message shaping ----------------------------------------------------
+  // Accepts Anthropic-shaped content and converts it to what the gateway
+  // actually speaks. Returns { messages, droppedPdf }.
+  function toOpenAI(messages) {
+    var out = [], droppedPdf = false;
+
+    (messages || []).forEach(function (m) {
+      var role = m.role === "assistant" ? "assistant" : "user";
+      var c = m.content;
+
+      if (typeof c === "string") { out.push({ role: role, content: c }); return; }
+      if (!Array.isArray(c)) return;
+
+      var parts = [];
+      c.forEach(function (p) {
+        if (p.type === "text") { parts.push({ type: "text", text: p.text }); return; }
+
+        // Anthropic shape in → OpenAI shape out.
+        if (p.type === "image" && p.source && p.source.data) {
+          parts.push({ type: "image_url", image_url: {
+            url: "data:" + (p.source.media_type || "image/png") + ";base64," + p.source.data } });
+          return;
+        }
+        // Already OpenAI shaped.
+        if (p.type === "image_url") { parts.push(p); return; }
+
+        // PDFs cannot travel this path at all. Flagged, never silently lost.
+        if (p.type === "document") droppedPdf = true;
+      });
+
+      if (!parts.length) return;
+      var onlyText = parts.every(function (x) { return x.type === "text"; });
+      out.push({ role: role, content: onlyText
+        ? parts.map(function (x) { return x.text; }).join("\n")
+        : parts });
+    });
+
+    return { messages: out, droppedPdf: droppedPdf };
+  }
+
+  // ---- streaming ----------------------------------------------------------
+  async function readStream(res, onDelta) {
+    var ctype = (res.headers && res.headers.get)
+      ? (res.headers.get("content-type") || "") : "";
+
+    // See note 4. A non-streaming Worker still gives you a body.
+    if (ctype.indexOf("event-stream") === -1 || !res.body || !res.body.getReader) {
+      var data = await res.json();
+      if (data.error) throw new Error(data.error.message || "api error");
+      var t = "";
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        t = data.choices[0].message.content || "";
+      } else if (Array.isArray(data.content)) {
+        t = data.content.filter(function (b) { return b.type === "text"; })
+                        .map(function (b) { return b.text; }).join("\n");
+      }
+      if (onDelta) onDelta(t);
+      return t;
+    }
+
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = "", full = "";
+
+    for (;;) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      var lines = buffer.split("\n");
+      buffer = lines.pop();            // partial line waits for the next chunk
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (line.indexOf("data:") !== 0) continue;
+        var payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        var evt;
+        try { evt = JSON.parse(payload); } catch (e) { continue; }
+        if (evt.type === "error") {
+          throw new Error((evt.error && evt.error.message) || "stream error");
+        }
+        // OpenAI shape — what the gateway speaks.
+        var oa = evt.choices && evt.choices[0] && evt.choices[0].delta;
+        if (oa && typeof oa.content === "string" && oa.content) {
+          full += oa.content;
+          if (onDelta) onDelta(full);
+        }
+        // Anthropic shape, in case you point this at a different endpoint.
+        if (evt.type === "content_block_delta" && evt.delta
+            && evt.delta.type === "text_delta") {
+          full += evt.delta.text;
+          if (onDelta) onDelta(full);
+        }
+      }
+    }
+
+    if (!full) throw new Error("empty stream");
+    return full;
+  }
+
+  // ---- the call -----------------------------------------------------------
+  /**
+   * chat({ system, messages, onDelta, tier, maxTokens, temperature, stream })
+   *
+   * system    - string. Never trimmed, no matter how many retries happen.
+   * messages  - [{ role, content }]. content may be a string, or an array of
+   *             { type:"text" } / { type:"image", source:{...} } parts.
+   * onDelta   - optional (textSoFar) => void, called as the reply streams.
+   * tier      - optional override. Omit to let size routing choose.
+   *
+   * Resolves to the full reply text. Throws with a readable message.
+   */
+  async function chat(opts) {
+    if (!ready()) throw new Error("gateway not configured — call BBGateway.configure({url, key})");
+
+    var shaped = toOpenAI(opts.messages);
+    var convo = shaped.messages;
+    var sys = opts.system || "";
+
+    // See note 3. If something was attached that this path can't carry, the
+    // model must be TOLD, or it will confidently describe a file it never got.
+    if (shaped.droppedPdf) {
+      sys += "\n\nATTACHMENT NOTE\nThey attached a PDF. It could NOT be delivered to you on "
+           + "this connection. Say that plainly — that you can't open it right now — and offer to "
+           + "work from what they tell you about it. Never describe or summarise its contents; "
+           + "you have not seen it.";
+    }
+
+    var budget = cfg.turnBudget;
+    var res = null;
+
+    for (var attempt = 0; attempt <= cfg.shrinks; attempt++) {
+      var kept = trimTurns(convo, budget);
+      var turns = (sys ? [{ role: "system", content: sys }] : []).concat(kept);
+
+      // See note 1.
+      var approx = Math.round((sys.length + kept.reduce(function (n, t) {
+        return n + turnLength(t); }, 0)) / 4);
+      var tier = opts.tier || (approx > cfg.qualityAbove ? "quality" : "balanced");
+
+      res = await fetch(cfg.url + "/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer " + cfg.key,
+          "x-app": cfg.app,
+        },
+        body: JSON.stringify({
+          messages: turns,
+          tier: tier,
+          stream: opts.stream !== false,
+          max_tokens: opts.maxTokens || cfg.maxTokens,
+          temperature: typeof opts.temperature === "number" ? opts.temperature : cfg.temperature,
+        }),
+      });
+
+      if (res.ok) break;
+
+      var detail = "";
+      try { detail = (await res.text()).slice(0, 600); } catch (e) {}
+
+      // See note 2. 413 is explicit; a 429 complaining about size is the same
+      // problem wearing a different status code. An auth failure is NOT
+      // retried — resending a bad key four times just wastes time.
+      var tooBig = res.status === 413
+        || /request too large|too many tokens|context length|tokens per minute|reduce your/i.test(detail);
+
+      if (!tooBig || attempt === cfg.shrinks) {
+        throw new Error(friendly(res.status, detail));
+      }
+
+      budget = Math.floor(budget / 2);
+      if (console && console.warn) {
+        console.warn("bb-gateway: too large, retrying with less history ("
+          + budget + " chars, attempt " + (attempt + 2) + ")");
+      }
+      // Last resort: current exchange only. If even that is too big, the
+      // system prompt itself is over the ceiling and trimming won't help —
+      // that's a real error worth surfacing rather than looping on.
+      if (budget < 1200) budget = 0;
+    }
+
+    return readStream(res, opts.onDelta);
+  }
+
+  // A status code is not an explanation. These are the ones that actually
+  // happen, phrased so you know what to go and change.
+  function friendly(status, detail) {
+    if (status === 401 || status === 403) {
+      return "Gateway rejected the key (" + status + "). Check the key here matches "
+           + "GATEWAY_KEY in the Worker's secrets.";
+    }
+    if (status === 402) {
+      return "A provider says payment required (402). That provider's free tier doesn't "
+           + "cover the model it's set to — point it at a free-tier model, or let the chain "
+           + "fall through to another provider.";
+    }
+    if (status === 404 && /model/i.test(detail)) {
+      return "The provider doesn't know that model (404) — it's probably been retired. "
+           + "Set the {PROVIDER}_MODEL variable in the Worker rather than editing code.";
+    }
+    if (status === 429) {
+      return "Rate limited (429). Wait a moment and try again.";
+    }
+    if (status >= 500) {
+      return "Gateway error " + status + (detail ? ": " + detail : "") + ".";
+    }
+    return "Gateway " + status + (detail ? ": " + detail : "");
+  }
+
+  // Health, for a settings screen or a quick console check. Never returns keys.
+  async function health() {
+    if (!cfg.url) throw new Error("no gateway url set");
+    var res = await fetch(cfg.url + "/v1/health", {
+      headers: { authorization: "Bearer " + cfg.key },
+    });
+    return res.json();
+  }
+
+  global.BBGateway = {
+    configure: configure,
+    ready: ready,
+    chat: chat,
+    health: health,
+    // exposed for tests and for apps that do their own budgeting
+    _toOpenAI: toOpenAI,
+    _trimTurns: trimTurns,
+    _turnLength: turnLength,
+    _friendly: friendly,
+  };
+})(typeof window !== "undefined" ? window : globalThis);
+
+/* ===================== end gateway client ================================ */
+
+const BB_GATEWAY_URL = "https://blue-bonnet-gateway.dustin12342986.workers.dev";
+// Read from ?gwkey= once, then kept in this browser. Keeps the key out of the
+// published source — see the note in the Blue Bonnet card on the profile tab.
+const BB_GATEWAY_KEY = (function(){
+  try{
+    const q=new URLSearchParams(location.search).get("gwkey");
+    if(q){ localStorage.setItem("campus-gw-key", q);
+           history.replaceState({}, "", location.pathname); return q; }
+    return localStorage.getItem("campus-gw-key") || "";
+  }catch(e){ return ""; }
+})();
+BBGateway.configure({ url: BB_GATEWAY_URL, key: BB_GATEWAY_KEY, app: "campus" });
+function bbReady(){ return BBGateway.ready(); }
+const BB_SYSTEM = "You are Blue Bonnet, the assistant inside Campus \u2014 a college app used by one student. "
+  + "She is autistic; keep answers short, literal and calm. No idioms, no hype, no guilt. "
+  + "Never say she is behind, late or overdue \u2014 state dates plainly instead. "
+  + "Answer from the context below when it covers the question; say plainly when it does not.";
 // Fill in your own OAuth Client ID from Google Cloud Console to enable Drive sync.
 // Authorized JavaScript origin must exactly match your GitHub Pages URL (e.g. https://yourname.github.io).
 const GOOGLE_CLIENT_ID = "607694277453-t96d8mtknt9ceme8999dts6src0fre5l.apps.googleusercontent.com";
@@ -531,20 +898,35 @@ async function sendBlueBonnet(){
   state.bbMessages=[...state.bbMessages, {role:"user", content:text}];
   state.bbLoading=true; state.bbError="";
   render();
-  if(!BLUE_BONNET_ENDPOINT){
-    state.bbMessages=[...state.bbMessages, {role:"assistant", content:"Blue Bonnet isn't wired up to a live endpoint yet. Set BLUE_BONNET_ENDPOINT near the top of this file's <script> to your actual Blue Bonnet API URL, and this chat will call it automatically."}];
+  if(!bbReady()){
+    state.bbMessages=[...state.bbMessages, {role:"assistant", content:"I'm not connected yet. Open this site once with ?gwkey=YOUR_KEY on the end of the address and I'll remember it on this device."}];
     state.bbLoading=false; render(); return;
   }
   try{
-    const res=await fetch(BLUE_BONNET_ENDPOINT, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ messages: state.bbMessages, context: buildBlueBonnetContext() }),
+    const history=state.bbMessages
+      .filter(m=>m.role==="user"||m.role==="assistant")
+      .map(m=>({role:m.role, content:m.content}));
+    const reply=await BBGateway.chat({
+      system: BB_SYSTEM + "\n\nCONTEXT\n" + buildBlueBonnetContext(),
+      messages: history,
+      onDelta: (soFar)=>{
+        const last=state.bbMessages[state.bbMessages.length-1];
+        if(last && last.role==="assistant" && last.streaming){
+          state.bbMessages=[...state.bbMessages.slice(0,-1), {...last, content:soFar}];
+        }else{
+          state.bbMessages=[...state.bbMessages, {role:"assistant", content:soFar, streaming:true}];
+        }
+        render();
+      },
     });
-    const data=await res.json();
-    state.bbMessages=[...state.bbMessages, {role:"assistant", content: data.reply || data.content || "Sorry, I didn't catch that."}];
+    const last=state.bbMessages[state.bbMessages.length-1];
+    if(last && last.streaming){
+      state.bbMessages=[...state.bbMessages.slice(0,-1), {role:"assistant", content:reply}];
+    }else{
+      state.bbMessages=[...state.bbMessages, {role:"assistant", content:reply}];
+    }
   }catch(err){
-    state.bbError="Blue Bonnet couldn't respond right now — try again in a moment.";
+    state.bbError=(err && err.message) ? err.message : "Blue Bonnet couldn't respond right now.";
   }
   state.bbLoading=false;
   render();
@@ -601,8 +983,8 @@ async function handleSyllabusFile(file){
     state.bbFileError="That file type isn't supported — try a PDF, Word doc, image, or plain text file.";
     render(); return;
   }
-  if(!BLUE_BONNET_ENDPOINT){
-    state.bbFileError="Blue Bonnet isn't wired up to a live endpoint yet, so it can't read files. Set BLUE_BONNET_ENDPOINT near the top of the script first.";
+  if(!bbReady()){
+    state.bbFileError="I'm not connected yet — open this site once with ?gwkey=YOUR_KEY on the end of the address.";
     render(); return;
   }
   state.bbFileProcessing=true; state.bbFileError=""; state.bbPendingClasses=null;
@@ -610,17 +992,25 @@ async function handleSyllabusFile(file){
   render();
   try{
     const extracted=await extractFileContent(file);
-    const res=await fetch(BLUE_BONNET_ENDPOINT, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({
-        task: "parse_syllabus",
-        fileType: extracted.type,
-        content: extracted.content,
-        mimeType: extracted.mimeType || null,
-      }),
+    const ask = "Read this syllabus and pull out the classes that have a real weekly meeting time. "
+      + "Reply with JSON only, no prose and no code fences: "
+      + '{"summary":"one short sentence","classes":[{"name":"","days":[0-6 ints, Sun=0],"start":"HH:MM","end":"HH:MM","location":""}]} '
+      + "If nothing meets weekly, return an empty classes array and say so in summary.";
+    const content = extracted.type==="image"
+      ? [ {type:"text", text:ask},
+          {type:"image", source:{type:"base64", media_type:extracted.mimeType||"image/png", data:extracted.content}} ]
+      : ask + "\n\nSYLLABUS\n" + extracted.content;
+
+    const raw = await BBGateway.chat({
+      system: "You extract structured data. You reply with valid JSON and nothing else.",
+      messages: [{ role:"user", content }],
+      stream: false, temperature: 0.1, maxTokens: 1200,
     });
-    const data=await res.json();
+
+    let data={};
+    try{ data=JSON.parse(raw.replace(/```json|```/g,"").trim()); }
+    catch(e){ data={ summary: raw.slice(0,300), classes: [] }; }
+
     const classes = Array.isArray(data.classes) ? data.classes : [];
     if(classes.length===0){
       state.bbMessages=[...state.bbMessages, {role:"assistant", content: data.summary || "I couldn't find a clear class schedule in that file — you can still add classes manually on the Schedule tab."}];
@@ -952,6 +1342,7 @@ function TodayTabHTML(){
     ${CampusSafetyCardHTML()}
     ${CampusSupportCardHTML()}
     ${SyllabusImportCardHTML()}
+    ${BlueBonnetCardHTML()}
     ${CalendarCardHTML()}
     ${ThemeCardHTML()}
     ${DriveSyncCardHTML()}
@@ -1199,6 +1590,15 @@ async function pushToGoogleCalendar(){
     state.calError=(err && err.message) ? err.message : "Couldn't reach Google Calendar. Nothing was changed.";
   }
   state.calPushing=false; render();
+}
+function BlueBonnetCardHTML(){
+  const on=bbReady();
+  return `<div class="rounded-xl p-4 mb-4" style="${cardStyle()}">
+    <p class="text-xs uppercase tracking-wide mb-2 flex items-center gap-1.5" style="color:var(--muted)"><i data-lucide="sparkles" style="width:13px;height:13px"></i> Blue Bonnet</p>
+    ${on?`<p class="text-xs flex items-center gap-1.5" style="color:var(--ok)"><i data-lucide="check" style="width:13px;height:13px"></i> Connected on this device.</p>
+      <button data-action="bb-forget-key" class="text-xs mt-2" style="color:var(--muted)">Disconnect on this device</button>`
+    :`<p class="text-xs leading-relaxed" style="color:var(--muted)">Not connected yet. Open this site once with <strong>?gwkey=YOUR_KEY</strong> on the end of the address. The key is stored in this browser only \u2014 it is never written into the published page.</p>`}
+  </div>`;
 }
 function CalendarCardHTML(){
   const n=calendarPayload().length;
@@ -2150,6 +2550,7 @@ document.addEventListener("click", function(e){
       state.assignments=state.assignments.map(a=>a.id===id?{...a,done:!a.done}:a);
       persist("campus-assignments", state.assignments); render(); break;
     }
+    case "bb-forget-key": try{localStorage.removeItem("campus-gw-key");}catch(e){} location.reload(); break;
     case "push-calendar": pushToGoogleCalendar(); break;
     case "class-show-all": state.classShowAll={...state.classShowAll,[t.dataset.id]:true}; render(); break;
     case "class-show-less": state.classShowAll={...state.classShowAll,[t.dataset.id]:false}; render(); break;
