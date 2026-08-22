@@ -116,7 +116,7 @@ const LEVEL_ICON={info:"clock",warn:"footprints",over:"alert-triangle"};
 
 /* =============================== storage =============================== */
 const LS = {
-  get(key, fallback){ try{ const v=localStorage.getItem(key); return v===null?fallback:JSON.parse(v); }catch(e){ return fallback; } },
+  get(key, fallback){ try{ const v=localStorage.getItem(key); if(v===null) return fallback; const p=JSON.parse(v); return (p===null||p===undefined)?fallback:p; }catch(e){ return fallback; } },
   set(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); return true; }catch(e){ return false; } },
 };
 
@@ -276,10 +276,12 @@ async function loadFromDrive(){
     if(text && text.trim()){
       const remote = JSON.parse(text);
       Object.keys(remote).forEach(key=>{
+        const val=remote[key];
+        if(val===null||val===undefined) return;
         if(DRIVE_DATA_KEYS.indexOf(key)!==-1 || isChecklistKey(key)){
-          LS.set(key, remote[key]);
+          LS.set(key, val);
           const stateKey = driveKeyToStateKey(key);
-          if(stateKey) state[stateKey]=remote[key];
+          if(stateKey) state[stateKey]=val;
         }
       });
     }
@@ -326,7 +328,7 @@ async function saveToDrive(){
   try{
     const dataId = await driveFindOrCreateFile(DRIVE_DATA_FILENAME, driveDataFileId, (fid)=>{ driveDataFileId=fid; LS.set("campus-drive-data-fileid", fid); });
     const payload={};
-    driveSyncKeys().forEach(key=>{ payload[key]=LS.get(key, null); });
+    driveSyncKeys().forEach(key=>{ const v=LS.get(key, undefined); if(v!==undefined && v!==null) payload[key]=v; });
     await driveApi(`https://www.googleapis.com/upload/drive/v3/files/${dataId}?uploadType=media`, {
       method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload),
     });
